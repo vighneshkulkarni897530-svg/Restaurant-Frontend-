@@ -1,14 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import {
-  User as FirebaseUser,
-  signInWithPopup,
-  signOut as fbSignOut,
-  onAuthStateChanged,
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-} from 'firebase/auth';
+import type { User as FirebaseUser } from 'firebase/auth';
 import { auth, googleProvider, isFirebaseConfigured } from '../lib/firebase';
 
 interface FirebaseAuthContextType {
@@ -38,19 +31,32 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
   const [isFirebaseLoading, setIsFirebaseLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
-        setFirebaseUser(user);
+    let unsubscribe: (() => void) | undefined;
+    const initAuth = async () => {
+      try {
+        if (auth) {
+          const { onAuthStateChanged } = await import('firebase/auth');
+          unsubscribe = onAuthStateChanged(auth, (user) => {
+            setFirebaseUser(user);
+            setIsFirebaseLoading(false);
+          });
+        } else {
+          setIsFirebaseLoading(false);
+        }
+      } catch (e) {
         setIsFirebaseLoading(false);
-      });
-      return () => unsubscribe();
-    } catch (e) {
-      setIsFirebaseLoading(false);
-    }
+      }
+    };
+    initAuth();
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   const signInWithGoogle = async (): Promise<FirebaseUser | null> => {
     try {
+      if (!auth || !googleProvider) return null;
+      const { signInWithPopup } = await import('firebase/auth');
       const result = await signInWithPopup(auth, googleProvider);
       return result.user;
     } catch (error) {
@@ -61,6 +67,8 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
 
   const signInWithEmail = async (email: string, pass: string): Promise<FirebaseUser | null> => {
     try {
+      if (!auth) return null;
+      const { signInWithEmailAndPassword } = await import('firebase/auth');
       const result = await signInWithEmailAndPassword(auth, email, pass);
       return result.user;
     } catch (error) {
@@ -71,6 +79,8 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
 
   const signUpWithEmail = async (email: string, pass: string): Promise<FirebaseUser | null> => {
     try {
+      if (!auth) return null;
+      const { createUserWithEmailAndPassword } = await import('firebase/auth');
       const result = await createUserWithEmailAndPassword(auth, email, pass);
       return result.user;
     } catch (error) {
@@ -81,7 +91,9 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
 
   const logoutFirebase = async () => {
     try {
-      await fbSignOut(auth);
+      if (!auth) return;
+      const { signOut } = await import('firebase/auth');
+      await signOut(auth);
     } catch (error) {
       console.error('[Firebase Auth] Sign Out Failed:', error);
     }

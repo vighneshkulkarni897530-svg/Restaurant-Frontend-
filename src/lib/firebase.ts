@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth, Auth, GoogleAuthProvider, browserLocalPersistence, setPersistence } from 'firebase/auth';
+import { getAuth, Auth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 
@@ -21,20 +21,23 @@ export const isFirebaseConfigured = Boolean(
   process.env.NEXT_PUBLIC_FIREBASE_API_KEY !== 'AIzaSyDemoSampleGovindasKey123456789'
 );
 
-// Initialize Firebase App singleton safely
-let app: FirebaseApp;
-if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
-} else {
-  app = getApp();
+let app: FirebaseApp | undefined;
+let auth: Auth | undefined;
+let db: Firestore | undefined;
+let storage: FirebaseStorage | undefined;
+let googleProvider: GoogleAuthProvider | undefined;
+
+try {
+  if (typeof window !== 'undefined' || getApps().length === 0) {
+    app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
+    googleProvider = new GoogleAuthProvider();
+  }
+} catch (e) {
+  console.warn('[Firebase] Init notice:', e);
 }
 
-// Services
-export const auth: Auth = getAuth(app);
-export const db: Firestore = getFirestore(app);
-export const storage: FirebaseStorage = getStorage(app);
-export const googleProvider = new GoogleAuthProvider();
-
-// Default config export
-export { firebaseConfig };
+export { app, auth, db, storage, googleProvider, firebaseConfig };
 export default app;
