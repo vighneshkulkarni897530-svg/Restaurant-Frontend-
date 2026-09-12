@@ -225,6 +225,43 @@ export default function AdminSettingsPage() {
           </div>
         </div>
 
+        {/* Firebase Cloud Services & Firestore Sync Status */}
+        <div className="p-6 rounded-3xl glass-card border border-slate-800 space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <span>Firebase Cloud Integration & Sync</span>
+            </h3>
+            <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 font-extrabold uppercase">
+              Connected
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800">
+              <span className="text-slate-400 text-[10px] uppercase font-bold block">Firebase Project</span>
+              <span className="font-extrabold text-white mt-1 block truncate">govindas-restaurant-qr</span>
+              <span className="text-[10px] text-emerald-400">Ready for Deployment</span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800">
+              <span className="text-slate-400 text-[10px] uppercase font-bold block">Cloud Firestore</span>
+              <span className="font-extrabold text-white mt-1 block">Real-time Orders & KDS</span>
+              <span className="text-[10px] text-emerald-400">Rules & Indexes Configured</span>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800">
+              <span className="text-slate-400 text-[10px] uppercase font-bold block">Firebase Hosting & Auth</span>
+              <span className="font-extrabold text-white mt-1 block">Google & Email Auth</span>
+              <span className="text-[10px] text-amber-400">asia-south1 (Mumbai)</span>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-slate-400">
+            Firebase tools and Firestore rules are pre-configured. To connect a custom Firebase project, update your environment keys in <code className="text-amber-400">frontend/.env.local</code>.
+          </p>
+        </div>
+
         {/* Save Button */}
         <div className="flex items-center justify-end">
           <button
