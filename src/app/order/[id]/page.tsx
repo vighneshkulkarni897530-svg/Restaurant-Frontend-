@@ -22,7 +22,7 @@ import {
 import Navbar from '../../../components/Navbar';
 import ReceiptModal from '../../../components/ReceiptModal';
 import CallWaiterModal from '../../../components/CallWaiterModal';
-import { api } from '../../../lib/api';
+import { api, subscribeToLocalOrderEvents } from '../../../lib/api';
 import { getSocket } from '../../../lib/socket';
 import { playSound } from '../../../lib/audio';
 import { Order, OrderStatus } from '../../../types';
@@ -37,40 +37,56 @@ export default function OrderTrackingPage() {
   const [isWaiterModalOpen, setIsWaiterModalOpen] = useState(false);
   const [error, setError] = useState('');
 
-  // 1. Initial Fetch
-  useEffect(() => {
-    const fetchOrder = async () => {
-      try {
-        const res = await api.getOrderById(orderId);
-        if (res.success && res.order) {
-          setOrder(res.order);
-        } else {
-          setError('Order not found.');
-        }
-      } catch (err: any) {
+  // 1. Initial Fetch and Periodic Refresh Helper
+  const refreshOrder = async (isInitial = false) => {
+    try {
+      const res = await api.getOrderById(orderId);
+      if (res.success && res.order) {
+        setOrder((prev) => {
+          if (prev && prev.status !== res.order.status) {
+            console.log('⚡ Order status changed via sync:', prev.status, '->', res.order.status);
+            playSound('status_update');
+          }
+          return res.order;
+        });
+        setError('');
+      } else if (isInitial) {
+        setError('Order not found.');
+      }
+    } catch (err: any) {
+      if (isInitial) {
         setError(err.message || 'Failed to load order.');
-      } finally {
+      }
+    } finally {
+      if (isInitial) {
         setIsLoading(false);
       }
-    };
-
-    if (orderId) {
-      fetchOrder();
     }
+  };
+
+  useEffect(() => {
+    if (!orderId) return;
+    refreshOrder(true);
+
+    // 2. Failsafe auto-poll interval every 3 seconds
+    const interval = setInterval(() => {
+      refreshOrder(false);
+    }, 3000);
+
+    return () => clearInterval(interval);
   }, [orderId]);
 
-  // 2. Real-Time Socket.IO Listener
+  // 3. Real-Time Socket.IO & Cross-Tab Events Listener
   useEffect(() => {
     if (!orderId) return;
 
+    // A. Socket.IO Listener
     const socket = getSocket();
-
-    // Join order-specific room
     socket.emit('join_order', orderId);
 
     const handleStatusUpdate = (updatedOrder: Order) => {
-      if (updatedOrder.id === orderId) {
-        console.log('⚡ Received live order status update:', updatedOrder.status);
+      if (updatedOrder && (updatedOrder.id === orderId || updatedOrder.orderNumber === orderId)) {
+        console.log('⚡ Received live order status update via socket:', updatedOrder.status);
         setOrder(updatedOrder);
         playSound('status_update');
       }
@@ -78,8 +94,18 @@ export default function OrderTrackingPage() {
 
     socket.on('order:status_updated', handleStatusUpdate);
 
+    // B. Local Cross-Tab Event Listener (BroadcastChannel / CustomEvent / Storage)
+    const unsubscribeLocal = subscribeToLocalOrderEvents((event, data) => {
+      if (event === 'order:status_updated' && data && (data.id === orderId || data.orderNumber === orderId)) {
+        console.log('⚡ Received live order status update via local channel:', data.status);
+        setOrder(data);
+        playSound('status_update');
+      }
+    });
+
     return () => {
       socket.off('order:status_updated', handleStatusUpdate);
+      unsubscribeLocal();
     };
   }, [orderId]);
 

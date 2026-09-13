@@ -18,7 +18,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import ReceiptModal from '../../../components/ReceiptModal';
-import { api } from '../../../lib/api';
+import { api, subscribeToLocalOrderEvents } from '../../../lib/api';
 import { getSocket } from '../../../lib/socket';
 import { playSound } from '../../../lib/audio';
 import { Order, OrderStatus } from '../../../types';
@@ -33,8 +33,9 @@ export default function AdminOrdersKDSPage() {
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // 1. Initial Orders Fetch
-  const loadOrders = async () => {
+  // 1. Initial Orders Fetch and Auto-Refresh
+  const loadOrders = async (showLoading = false) => {
+    if (showLoading) setIsLoading(true);
     try {
       const res = await api.listOrders();
       if (res.orders) {
@@ -43,20 +44,29 @@ export default function AdminOrdersKDSPage() {
     } catch (e) {
       console.error('Failed to load orders:', e);
     } finally {
-      setIsLoading(false);
+      if (showLoading) setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadOrders();
+    loadOrders(true);
+
+    // Periodic auto-sync interval every 4s
+    const interval = setInterval(() => {
+      loadOrders(false);
+    }, 4000);
+
+    return () => clearInterval(interval);
   }, []);
 
-  // 2. Real-Time Socket.IO Listener
+  // 2. Real-Time Socket.IO & Cross-Tab Listener
   useEffect(() => {
+    // A. Socket.IO
     const socket = getSocket();
     socket.emit('join_admin');
 
     const handleNewOrder = (newOrder: Order) => {
+      if (!newOrder) return;
       console.log('⚡ KDS received new order event:', newOrder.orderNumber);
       playSound('new_order');
       setOrders((prev) => {
@@ -66,6 +76,7 @@ export default function AdminOrdersKDSPage() {
     };
 
     const handleStatusUpdate = (updatedOrder: Order) => {
+      if (!updatedOrder) return;
       console.log('⚡ KDS received status update:', updatedOrder.orderNumber, updatedOrder.status);
       setOrders((prev) =>
         prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o))
@@ -75,9 +86,19 @@ export default function AdminOrdersKDSPage() {
     socket.on('order:new', handleNewOrder);
     socket.on('order:status_updated', handleStatusUpdate);
 
+    // B. Local Cross-Tab Events
+    const unsubscribeLocal = subscribeToLocalOrderEvents((event, data) => {
+      if (event === 'order:new' && data) {
+        handleNewOrder(data);
+      } else if (event === 'order:status_updated' && data) {
+        handleStatusUpdate(data);
+      }
+    });
+
     return () => {
       socket.off('order:new', handleNewOrder);
       socket.off('order:status_updated', handleStatusUpdate);
+      unsubscribeLocal();
     };
   }, []);
 
@@ -151,8 +172,8 @@ export default function AdminOrdersKDSPage() {
         {/* Action Controls & Sound State */}
         <div className="flex items-center gap-2">
           <button
-            onClick={loadOrders}
-            className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 transition-colors"
+            onClick={() => loadOrders(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold transition-colors"
           >
             Refresh Orders
           </button>

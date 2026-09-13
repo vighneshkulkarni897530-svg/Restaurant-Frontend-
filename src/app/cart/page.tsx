@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import confetti from 'canvas-confetti';
@@ -51,6 +51,16 @@ export default function CartPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
+  // Load saved guest details
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedName = localStorage.getItem('hotel_guest_name');
+      const savedPhone = localStorage.getItem('hotel_guest_phone');
+      if (savedName) setCustomerName(savedName);
+      if (savedPhone) setCustomerPhone(savedPhone);
+    }
+  }, []);
+
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
     if (cart.length === 0) return;
@@ -60,28 +70,57 @@ export default function CartPage() {
       return;
     }
 
+    const cleanName = customerName.trim();
+    if (!cleanName || cleanName.length < 2) {
+      setErrorMessage('Please enter your full Name (at least 2 characters) before ordering.');
+      return;
+    }
+
+    const cleanPhone = customerPhone.trim().replace(/[\s-]/g, '');
+    const phoneRegex = /^[+]?[0-9]{10,13}$/;
+    if (!cleanPhone || !phoneRegex.test(cleanPhone)) {
+      setErrorMessage('Please enter a valid 10-digit Mobile Number before ordering.');
+      return;
+    }
+
     setIsSubmitting(true);
     setErrorMessage('');
 
     try {
-      // 1. Prepare Order Payload
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('hotel_guest_name', cleanName);
+        localStorage.setItem('hotel_guest_phone', cleanPhone);
+      }
+
+      // 1. Prepare Order Payload with complete item details and financial breakdown
       const orderPayload = {
         qrToken: table.qrToken,
         tableId: table.id,
-        customerName: customerName.trim() || 'Guest Diner',
-        customerPhone: customerPhone.trim() || undefined,
+        customerName: cleanName,
+        customerPhone: cleanPhone,
         notes: orderNotes.trim() || undefined,
         paymentMethod: paymentMethod,
         items: cart.map((i) => ({
           menuItemId: i.menuItem.id,
+          name: i.menuItem.name,
+          unitPrice: i.menuItem.price,
+          itemTotal: i.menuItem.price * i.quantity,
           quantity: i.quantity,
           specialInstructions: i.specialInstructions,
         })),
+        subtotal,
+        tax: taxAmount,
+        serviceCharge: serviceChargeAmount,
+        total: grandTotal,
       };
 
       const res = await api.createOrder(orderPayload);
 
       if (res.success && res.order) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('hotel_current_order_id', res.order.id);
+        }
+
         // Trigger celebratory confetti
         confetti({
           particleCount: 80,
@@ -93,6 +132,8 @@ export default function CartPage() {
         playSound('success');
         clearCart();
         router.push(`/order/${res.order.id}`);
+      } else {
+        setErrorMessage(res.message || 'Failed to place order.');
       }
     } catch (err: any) {
       console.error('Checkout error:', err);
@@ -286,36 +327,58 @@ export default function CartPage() {
 
           {/* Checkout & Bill Summary Column */}
           <form onSubmit={handleCheckout} className="space-y-4">
-            {/* Customer Contact */}
-            <div className="p-4 rounded-2xl glass-card border border-slate-800 space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                Guest Diner Details
-              </h3>
+            {/* Customer Contact - Compulsory */}
+            <div className="p-4 rounded-2xl glass-card border border-amber-500/30 space-y-3 relative overflow-hidden">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                  <span>Guest Details</span>
+                  <span className="text-[10px] text-amber-400 font-extrabold bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/30">
+                    Compulsory
+                  </span>
+                </h3>
+              </div>
 
               <div className="space-y-1">
-                <label className="text-[11px] text-slate-400 flex items-center gap-1">
-                  <User className="w-3 h-3 text-amber-400" /> Name (Optional)
+                <label className="text-[11px] text-slate-300 font-semibold flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <User className="w-3.5 h-3.5 text-amber-400" /> Full Name <span className="text-rose-400 font-bold">*</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-normal">Required</span>
                 </label>
                 <input
                   type="text"
+                  required
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="e.g. Vikram / Table 02"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:border-amber-400"
+                  placeholder="e.g. Vikram Sharma"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 focus:border-amber-400 text-white text-xs focus:outline-none transition-colors"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-[11px] text-slate-400 flex items-center gap-1">
-                  <Phone className="w-3 h-3 text-amber-400" /> Mobile (For E-Bill updates)
+                <label className="text-[11px] text-slate-300 font-semibold flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Phone className="w-3.5 h-3.5 text-amber-400" /> Mobile Number <span className="text-rose-400 font-bold">*</span>
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-normal">Required for E-Bill</span>
                 </label>
-                <input
-                  type="tel"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="+91 98765 43210"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 text-xs focus:outline-none focus:border-amber-400"
-                />
+                <div className="relative flex items-center">
+                  <span className="absolute left-3 text-xs font-bold text-slate-400 pointer-events-none">
+                    +91
+                  </span>
+                  <input
+                    type="tel"
+                    required
+                    maxLength={10}
+                    value={customerPhone.replace('+91', '').trim()}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9]/g, '');
+                      setCustomerPhone(val);
+                    }}
+                    placeholder="9876543210"
+                    className="w-full pl-11 pr-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 focus:border-amber-400 text-white text-xs focus:outline-none transition-colors"
+                  />
+                </div>
               </div>
             </div>
 

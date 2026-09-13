@@ -24,12 +24,13 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import ReceiptModal from '../../../components/ReceiptModal';
-import { api } from '../../../lib/api';
+import { api, subscribeToLocalOrderEvents } from '../../../lib/api';
+import { getSocket } from '../../../lib/socket';
 import { Order, OrderStatus } from '../../../types';
 
 export default function OrderDetailsPage() {
   const [orders, setOrders] = useState<Order[]>([]);
-  const [statusFilter, setStatusFilter] = useState<string>('COMPLETED'); // Default to Completed Orders
+  const [statusFilter, setStatusFilter] = useState<string>('all'); // Default to All Orders so new orders are instantly visible
   const [tableFilter, setTableFilter] = useState<string>('all');
   const [paymentFilter, setPaymentFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,8 +42,8 @@ export default function OrderDetailsPage() {
   const [selectedDetailOrder, setSelectedDetailOrder] = useState<Order | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
-  const loadOrders = async () => {
-    setIsLoading(true);
+  const loadOrders = async (showLoading = false) => {
+    if (showLoading) setIsLoading(true);
     try {
       const res = await api.listOrders({
         status: statusFilter === 'all' ? undefined : statusFilter,
@@ -52,12 +53,41 @@ export default function OrderDetailsPage() {
     } catch (e) {
       console.error('Failed to load order details:', e);
     } finally {
-      setIsLoading(false);
+      if (showLoading) setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    loadOrders();
+    loadOrders(true);
+
+    const interval = setInterval(() => {
+      loadOrders(false);
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [statusFilter, tableFilter]);
+
+  // Real-Time Socket & Cross-Tab Listener
+  useEffect(() => {
+    const socket = getSocket();
+    socket.emit('join_admin');
+
+    const handleEvent = () => {
+      loadOrders(false);
+    };
+
+    socket.on('order:new', handleEvent);
+    socket.on('order:status_updated', handleEvent);
+
+    const unsubscribeLocal = subscribeToLocalOrderEvents(() => {
+      loadOrders(false);
+    });
+
+    return () => {
+      socket.off('order:new', handleEvent);
+      socket.off('order:status_updated', handleEvent);
+      unsubscribeLocal();
+    };
   }, [statusFilter, tableFilter]);
 
   const handleOpenReceipt = (order: Order) => {
@@ -135,7 +165,7 @@ export default function OrderDetailsPage() {
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
           <button
-            onClick={loadOrders}
+            onClick={() => loadOrders(true)}
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold transition-colors"
           >
             <RefreshCw className="w-3.5 h-3.5" />
