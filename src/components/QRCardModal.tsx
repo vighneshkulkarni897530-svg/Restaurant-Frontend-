@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import QRCode from 'qrcode';
 import { QrCode, Download, Printer, ExternalLink, X, Copy, Check, Sparkles } from 'lucide-react';
 import { Table } from '../types';
 
@@ -20,17 +19,20 @@ export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps
       const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
       const menuUrl = `${origin}/menu?table=${table.qrToken}`;
 
-      QRCode.toDataURL(menuUrl, {
-        width: 600,
-        margin: 2,
-        color: {
-          dark: '#0f172a',
-          light: '#ffffff',
-        },
-        errorCorrectionLevel: 'H',
-      }).then((url) => {
-        setQrDataUrl(url);
-      });
+      import('qrcode').then((QRCodeModule) => {
+        const QRCode = QRCodeModule.default || QRCodeModule;
+        QRCode.toDataURL(menuUrl, {
+          width: 600,
+          margin: 2,
+          color: {
+            dark: '#0f172a',
+            light: '#ffffff',
+          },
+          errorCorrectionLevel: 'H',
+        }).then((url: string) => {
+          setQrDataUrl(url);
+        }).catch((err: any) => console.error('QR generation error:', err));
+      }).catch((err: any) => console.error('Failed to load qrcode module:', err));
     }
   }, [table]);
 

@@ -22,6 +22,7 @@ import {
 import Navbar from '../../../components/Navbar';
 import ReceiptModal from '../../../components/ReceiptModal';
 import CallWaiterModal from '../../../components/CallWaiterModal';
+import PaymentModal from '../../../components/PaymentModal';
 import { api, subscribeToLocalOrderEvents } from '../../../lib/api';
 import { getSocket } from '../../../lib/socket';
 import { playSound } from '../../../lib/audio';
@@ -35,6 +36,7 @@ export default function OrderTrackingPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [isWaiterModalOpen, setIsWaiterModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [error, setError] = useState('');
 
   // 1. Initial Fetch and Periodic Refresh Helper
@@ -294,8 +296,43 @@ export default function OrderTrackingPage() {
               <span>₹{order.serviceCharge.toFixed(2)}</span>
             </div>
             <div className="flex justify-between pt-2 border-t border-slate-800 text-base font-extrabold text-white">
-              <span>Total Paid:</span>
+              <span>{order.paymentStatus === 'PAID' ? 'Total Paid:' : 'Total Amount:'}</span>
               <span className="gold-gradient-text text-lg">₹{order.total.toFixed(2)}</span>
+            </div>
+
+            {/* Payment Status Badge / Pay Button */}
+            <div className="pt-2">
+              {order.paymentStatus === 'PAID' ? (
+                <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+                    <span className="text-xs font-bold text-emerald-400">
+                      Payment Verified & Settled
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {order.payment?.paymentMethod || 'Online / Card'}
+                  </span>
+                </div>
+              ) : (
+                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-amber-300 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                      <span>Payment: Pending Settlement</span>
+                    </span>
+                    <span className="text-[10px] text-slate-400">Cash / Online</span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsPaymentModalOpen(true)}
+                    className="w-full py-2.5 rounded-xl gold-gradient-bg text-slate-950 font-black text-xs shadow-md shadow-amber-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+                  >
+                    <span>💳 Pay Bill Online via UPI / Card (₹{order.total.toFixed(2)})</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -335,6 +372,36 @@ export default function OrderTrackingPage() {
         <CallWaiterModal
           isOpen={isWaiterModalOpen}
           onClose={() => setIsWaiterModalOpen(false)}
+        />
+      )}
+
+      {/* Online Bill Payment Modal */}
+      {isPaymentModalOpen && (
+        <PaymentModal
+          isOpen={isPaymentModalOpen}
+          onClose={() => setIsPaymentModalOpen(false)}
+          amount={order.total}
+          customerName={order.customerName || 'Guest Diner'}
+          customerPhone={order.customerPhone || ''}
+          orderNumber={order.orderNumber}
+          orderId={order.id}
+          onPaymentSuccess={(paymentData) => {
+            setOrder((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    paymentStatus: 'PAID',
+                    payment: {
+                      ...(prev.payment as any),
+                      status: 'COMPLETED',
+                      paymentMethod: paymentData.paymentMethod,
+                      providerPaymentId: paymentData.razorpayPaymentId,
+                    },
+                  }
+                : null
+            );
+            setIsPaymentModalOpen(false);
+          }}
         />
       )}
     </div>

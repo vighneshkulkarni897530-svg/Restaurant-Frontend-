@@ -26,6 +26,8 @@ import { useCart } from '../../context/CartContext';
 import { api } from '../../lib/api';
 import { playSound } from '../../lib/audio';
 
+import PaymentModal from '../../components/PaymentModal';
+
 export default function CartPage() {
   const router = useRouter();
   const {
@@ -49,6 +51,7 @@ export default function CartPage() {
   const [orderNotes, setOrderNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'ONLINE_RAZORPAY' | 'CASH'>('ONLINE_RAZORPAY');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
   // Load saved guest details
@@ -61,45 +64,27 @@ export default function CartPage() {
     }
   }, []);
 
-  const handleCheckout = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (cart.length === 0) return;
-
-    if (!table) {
-      setErrorMessage('Please select or scan a dining table QR before placing an order.');
-      return;
-    }
-
-    const cleanName = customerName.trim();
-    if (!cleanName || cleanName.length < 2) {
-      setErrorMessage('Please enter your full Name (at least 2 characters) before ordering.');
-      return;
-    }
-
-    const cleanPhone = customerPhone.trim().replace(/[\s-]/g, '');
-    const phoneRegex = /^[+]?[0-9]{10,13}$/;
-    if (!cleanPhone || !phoneRegex.test(cleanPhone)) {
-      setErrorMessage('Please enter a valid 10-digit Mobile Number before ordering.');
-      return;
-    }
-
+  const executeOrderCreation = async (paymentDetails?: {
+    paymentMethod: string;
+    razorpayPaymentId: string;
+    razorpayOrderId: string;
+  }) => {
     setIsSubmitting(true);
     setErrorMessage('');
 
     try {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('hotel_guest_name', cleanName);
-        localStorage.setItem('hotel_guest_phone', cleanPhone);
-      }
+      const cleanName = customerName.trim();
+      const cleanPhone = customerPhone.trim().replace(/[\s-]/g, '');
 
       // 1. Prepare Order Payload with complete item details and financial breakdown
       const orderPayload = {
-        qrToken: table.qrToken,
-        tableId: table.id,
+        qrToken: table?.qrToken,
+        tableId: table?.id,
         customerName: cleanName,
         customerPhone: cleanPhone,
         notes: orderNotes.trim() || undefined,
-        paymentMethod: paymentMethod,
+        paymentMethod: paymentDetails ? paymentDetails.paymentMethod : paymentMethod,
+        paymentStatus: paymentDetails ? 'PAID' : paymentMethod === 'CASH' ? 'PENDING' : 'PAID',
         items: cart.map((i) => ({
           menuItemId: i.menuItem.id,
           name: i.menuItem.name,
@@ -123,8 +108,8 @@ export default function CartPage() {
 
         // Trigger celebratory confetti
         confetti({
-          particleCount: 80,
-          spread: 70,
+          particleCount: 90,
+          spread: 75,
           origin: { y: 0.6 },
           colors: ['#f59e0b', '#10b981', '#6366f1'],
         });
@@ -140,6 +125,40 @@ export default function CartPage() {
       setErrorMessage(err.message || 'Failed to place order. Please try again.');
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleCheckout = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (cart.length === 0) return;
+
+    if (!table) {
+      setErrorMessage('Please select or scan a dining table QR before placing an order.');
+      return;
+    }
+
+    const cleanName = customerName.trim();
+    if (!cleanName || cleanName.length < 2) {
+      setErrorMessage('Please enter your full Name (at least 2 characters) before ordering.');
+      return;
+    }
+
+    const cleanPhone = customerPhone.trim().replace(/[\s-]/g, '');
+    const phoneRegex = /^[+]?[0-9]{10,13}$/;
+    if (!cleanPhone || !phoneRegex.test(cleanPhone)) {
+      setErrorMessage('Please enter a valid 10-digit Mobile Number before ordering.');
+      return;
+    }
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('hotel_guest_name', cleanName);
+      localStorage.setItem('hotel_guest_phone', cleanPhone);
+    }
+
+    if (paymentMethod === 'ONLINE_RAZORPAY') {
+      setIsPaymentModalOpen(true);
+    } else {
+      await executeOrderCreation();
     }
   };
 
@@ -477,6 +496,21 @@ export default function CartPage() {
           </form>
         </div>
       </main>
+
+      {/* Online Payment Gateway Modal */}
+      {isPaymentModalOpen && (
+        <PaymentModal
+          isOpen={isPaymentModalOpen}
+          onClose={() => setIsPaymentModalOpen(false)}
+          amount={grandTotal}
+          customerName={customerName.trim() || 'Guest Diner'}
+          customerPhone={customerPhone.trim()}
+          onPaymentSuccess={(paymentData) => {
+            setIsPaymentModalOpen(false);
+            executeOrderCreation(paymentData);
+          }}
+        />
+      )}
     </div>
   );
 }

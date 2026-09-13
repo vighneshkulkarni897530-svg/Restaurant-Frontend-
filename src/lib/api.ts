@@ -983,13 +983,44 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
       return {
         success: true,
         orderId: `order_mock_${Date.now()}`,
-        amount: (body.amount || 100) * 100,
+        amount: Math.round((body.amount || 100) * 100),
         currency: 'INR',
         keyId: 'rzp_test_mock_govindas',
       };
     }
 
     if (cleanEndpoint.startsWith('/payments/verify')) {
+      const body = options.body ? JSON.parse(options.body as string) : {};
+      if (body.orderId) {
+        const allOrders = getStoredOrders();
+        const target = allOrders.find((o) => o.id === body.orderId || o.orderNumber === body.orderId);
+        if (target) {
+          target.paymentStatus = 'PAID';
+          if (!target.payment) {
+            target.payment = {
+              id: `pay_live_${Date.now()}`,
+              orderId: target.id,
+              provider: 'ONLINE_RAZORPAY',
+              amount: target.total,
+              status: 'COMPLETED',
+              paymentMethod: body.paymentMethod || 'UPI / Online',
+              createdAt: new Date().toISOString(),
+            };
+          } else {
+            target.payment.status = 'COMPLETED';
+            target.payment.providerPaymentId = body.razorpayPaymentId || `sim_pay_${Date.now()}`;
+            target.payment.providerOrderId = body.razorpayOrderId || `sim_ord_${Date.now()}`;
+            target.payment.paymentMethod = body.paymentMethod || 'UPI / Online';
+          }
+          target.updatedAt = new Date().toISOString();
+
+          const updatedOrders = allOrders.map((o) => (o.id === target.id ? { ...target } : o));
+          saveStoredOrders(updatedOrders);
+          broadcastLocalOrderEvent('order:status_updated', target);
+
+          return { success: true, message: 'Payment verified successfully.', order: target };
+        }
+      }
       return { success: true, message: 'Payment verified successfully.' };
     }
 
