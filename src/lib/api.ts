@@ -529,6 +529,10 @@ export const INITIAL_DEMO_ORDERS: any[] = [
 ];
 
 let inMemoryOrders: any[] | null = null;
+let inMemoryTables: any[] | null = null;
+let inMemoryCategories: any[] | null = null;
+let inMemoryMenuItems: any[] | null = null;
+let inMemorySettings: any | null = null;
 
 export const getStoredOrders = (): any[] => {
   if (typeof window === 'undefined') {
@@ -537,9 +541,9 @@ export const getStoredOrders = (): any[] => {
 
   try {
     const raw = localStorage.getItem('hotel_mock_orders');
-    if (raw) {
+    if (raw !== null) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         inMemoryOrders = parsed;
         return parsed;
       }
@@ -551,7 +555,7 @@ export const getStoredOrders = (): any[] => {
   inMemoryOrders = INITIAL_DEMO_ORDERS;
   try {
     localStorage.setItem('hotel_mock_orders', JSON.stringify(INITIAL_DEMO_ORDERS));
-  } catch {}
+  } catch { }
   return INITIAL_DEMO_ORDERS;
 };
 
@@ -566,13 +570,125 @@ export const saveStoredOrders = (orders: any[]) => {
   }
 };
 
+export const getStoredTables = (): any[] => {
+  if (typeof window === 'undefined') return inMemoryTables || DEMO_TABLES;
+  try {
+    const raw = localStorage.getItem('hotel_mock_tables');
+    if (raw !== null) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        inMemoryTables = parsed;
+        return parsed;
+      }
+    }
+  } catch { }
+  inMemoryTables = DEMO_TABLES;
+  try {
+    localStorage.setItem('hotel_mock_tables', JSON.stringify(DEMO_TABLES));
+  } catch { }
+  return DEMO_TABLES;
+};
+
+export const saveStoredTables = (tables: any[]) => {
+  inMemoryTables = tables;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('hotel_mock_tables', JSON.stringify(tables));
+    } catch { }
+  }
+};
+
+export const getStoredCategories = (): any[] => {
+  if (typeof window === 'undefined') return inMemoryCategories || DEMO_CATEGORIES;
+  try {
+    const raw = localStorage.getItem('hotel_mock_categories');
+    if (raw !== null) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        inMemoryCategories = parsed;
+        return parsed;
+      }
+    }
+  } catch { }
+  inMemoryCategories = DEMO_CATEGORIES;
+  try {
+    localStorage.setItem('hotel_mock_categories', JSON.stringify(DEMO_CATEGORIES));
+  } catch { }
+  return DEMO_CATEGORIES;
+};
+
+export const saveStoredCategories = (cats: any[]) => {
+  inMemoryCategories = cats;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('hotel_mock_categories', JSON.stringify(cats));
+    } catch { }
+  }
+};
+
+export const getStoredMenuItems = (): any[] => {
+  if (typeof window === 'undefined') return inMemoryMenuItems || DEMO_MENU_ITEMS;
+  try {
+    const raw = localStorage.getItem('hotel_mock_menu_items');
+    if (raw !== null) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        inMemoryMenuItems = parsed;
+        return parsed;
+      }
+    }
+  } catch { }
+  inMemoryMenuItems = DEMO_MENU_ITEMS;
+  try {
+    localStorage.setItem('hotel_mock_menu_items', JSON.stringify(DEMO_MENU_ITEMS));
+  } catch { }
+  return DEMO_MENU_ITEMS;
+};
+
+export const saveStoredMenuItems = (items: any[]) => {
+  inMemoryMenuItems = items;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('hotel_mock_menu_items', JSON.stringify(items));
+    } catch { }
+  }
+};
+
+export const getStoredSettings = (): any => {
+  if (typeof window === 'undefined') return inMemorySettings || DEMO_SETTINGS;
+  try {
+    const raw = localStorage.getItem('hotel_mock_settings');
+    if (raw !== null) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        inMemorySettings = parsed;
+        return parsed;
+      }
+    }
+  } catch { }
+  inMemorySettings = DEMO_SETTINGS;
+  try {
+    localStorage.setItem('hotel_mock_settings', JSON.stringify(DEMO_SETTINGS));
+  } catch { }
+  return DEMO_SETTINGS;
+};
+
+export const saveStoredSettings = (settings: any) => {
+  inMemorySettings = settings;
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('hotel_mock_settings', JSON.stringify(settings));
+    } catch { }
+  }
+};
+
 let syncBroadcastChannel: BroadcastChannel | null = null;
 const getBroadcastChannel = () => {
   if (typeof window === 'undefined') return null;
   if (!syncBroadcastChannel && typeof BroadcastChannel !== 'undefined') {
     try {
       syncBroadcastChannel = new BroadcastChannel('hotel_qr_events');
-    } catch {}
+    } catch { }
   }
   return syncBroadcastChannel;
 };
@@ -585,14 +701,14 @@ export const broadcastLocalOrderEvent = (event: 'order:new' | 'order:status_upda
   if (channel) {
     try {
       channel.postMessage({ event, data });
-    } catch {}
+    } catch { }
   }
 
   // 2. CustomEvent in same tab
   try {
     window.dispatchEvent(new CustomEvent(event, { detail: data }));
     window.dispatchEvent(new CustomEvent('hotel:order_event', { detail: { event, data } }));
-  } catch {}
+  } catch { }
 
   // 3. Storage event trigger for older browsers/tabs
   try {
@@ -600,13 +716,13 @@ export const broadcastLocalOrderEvent = (event: 'order:new' | 'order:status_upda
       'hotel_qr_last_event',
       JSON.stringify({ event, data, timestamp: Date.now() })
     );
-  } catch {}
+  } catch { }
 };
 
 export const subscribeToLocalOrderEvents = (
   callback: (event: 'order:new' | 'order:status_updated', data: any) => void
 ) => {
-  if (typeof window === 'undefined') return () => {};
+  if (typeof window === 'undefined') return () => { };
 
   const handleCustomEvent = (e: any) => {
     if (e.detail?.event && e.detail?.data) {
@@ -639,7 +755,7 @@ export const subscribeToLocalOrderEvents = (
         if (parsed.event && parsed.data) {
           callback(parsed.event, parsed.data);
         }
-      } catch {}
+      } catch { }
     }
   };
   window.addEventListener('storage', handleStorage);
@@ -692,6 +808,23 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
 
     if (!response.ok) {
       throw new Error(data.message || `API Error: ${response.statusText}`);
+    }
+
+    // Auto-cache remote database responses into localStorage to prevent data loss on server restart
+    if (data.orders && Array.isArray(data.orders)) {
+      saveStoredOrders(data.orders);
+    }
+    if (data.tables && Array.isArray(data.tables)) {
+      saveStoredTables(data.tables);
+    }
+    if (data.categories && Array.isArray(data.categories)) {
+      saveStoredCategories(data.categories);
+    }
+    if (data.items && Array.isArray(data.items)) {
+      saveStoredMenuItems(data.items);
+    }
+    if (data.settings && typeof data.settings === 'object') {
+      saveStoredSettings(data.settings);
     }
 
     return data;
@@ -775,32 +908,184 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
       };
     }
 
-    // 4. Hotel Settings Fallback
+    // 4. Hotel Settings Fallback (GET / PUT)
     if (cleanEndpoint.startsWith('/settings')) {
-      return { success: true, settings: DEMO_SETTINGS };
+      if (options.method === 'PUT' && options.body) {
+        const body = JSON.parse(options.body as string);
+        const current = getStoredSettings();
+        const updated = { ...current, ...body, updatedAt: new Date().toISOString() };
+        saveStoredSettings(updated);
+        return { success: true, message: 'Settings updated successfully', settings: updated };
+      }
+      return { success: true, settings: getStoredSettings() };
     }
 
-    // 5. Dining Tables Fallback
+    // 5. Dining Tables Fallback (GET, POST, PATCH, DELETE, Regenerate QR)
     if (cleanEndpoint.startsWith('/tables/qr/')) {
       const token = cleanEndpoint.replace('/tables/qr/', '');
-      const match = DEMO_TABLES.find((t) => t.qrToken === token) || DEMO_TABLES[0];
-      return { success: true, table: match, hotel: DEMO_SETTINGS };
+      const tables = getStoredTables();
+      const match = tables.find((t) => t.qrToken === token) || tables[0];
+      return { success: true, table: match, hotel: getStoredSettings() };
     }
 
     if (cleanEndpoint === '/tables' || cleanEndpoint.startsWith('/tables?')) {
-      return { success: true, tables: DEMO_TABLES };
+      if (options.method === 'POST' && options.body) {
+        const body = JSON.parse(options.body as string);
+        const tables = getStoredTables();
+        const newTable = {
+          id: `tbl_${Date.now()}`,
+          tableNumber: body.tableNumber || `${tables.length + 1}`.padStart(2, '0'),
+          capacity: parseInt(body.capacity) || 4,
+          section: body.section || 'Indoor Bistro',
+          qrToken: `tbl_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          status: body.status || 'ACTIVE',
+        };
+        const updated = [...tables, newTable];
+        saveStoredTables(updated);
+        return { success: true, table: newTable, message: 'Table created successfully' };
+      }
+      return { success: true, tables: getStoredTables() };
     }
 
-    // 6. Menu Categories Fallback
+    if (cleanEndpoint.startsWith('/tables/')) {
+      const parts = cleanEndpoint.split('?')[0].split('/');
+      const tableId = parts[2];
+      const tables = getStoredTables();
+
+      if (cleanEndpoint.includes('/regenerate-qr') && options.method === 'POST') {
+        const target = tables.find((t) => t.id === tableId);
+        if (target) {
+          target.qrToken = `tbl_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+          saveStoredTables(tables);
+          return { success: true, table: target, message: 'QR regenerated' };
+        }
+      }
+
+      if (options.method === 'PATCH' && options.body) {
+        const body = JSON.parse(options.body as string);
+        const updated = tables.map((t) => (t.id === tableId ? { ...t, ...body } : t));
+        saveStoredTables(updated);
+        const target = updated.find((t) => t.id === tableId);
+        return { success: true, table: target, message: 'Table updated' };
+      }
+
+      if (options.method === 'DELETE') {
+        const updated = tables.filter((t) => t.id !== tableId);
+        saveStoredTables(updated);
+        return { success: true, message: 'Table deleted successfully' };
+      }
+    }
+
+    // 6. Menu Categories Fallback (GET, POST, PATCH, DELETE)
     if (cleanEndpoint.startsWith('/menu/categories')) {
+      const categories = getStoredCategories();
+
+      if (options.method === 'POST' && options.body) {
+        const body = JSON.parse(options.body as string);
+        const newCat = {
+          id: `cat_${Date.now()}`,
+          name: body.name,
+          slug: body.slug || (body.name || '').toLowerCase().replace(/\s+/g, '-'),
+          description: body.description || '',
+          imageUrl: body.imageUrl || 'https://images.unsplash.com/photo-1544025162-d76694265947?w=600&auto=format&fit=crop&q=80',
+          icon: body.icon || 'UtensilsCrossed',
+          sortOrder: parseInt(body.sortOrder) || categories.length + 1,
+          isActive: true,
+          _count: { menuItems: 0 },
+        };
+        const updated = [...categories, newCat];
+        saveStoredCategories(updated);
+        return { success: true, category: newCat };
+      }
+
+      if (options.method === 'PATCH' && options.body) {
+        const parts = cleanEndpoint.split('/');
+        const catId = parts[3];
+        const body = JSON.parse(options.body as string);
+        const updated = categories.map((c) => (c.id === catId ? { ...c, ...body } : c));
+        saveStoredCategories(updated);
+        return { success: true, category: updated.find((c) => c.id === catId) };
+      }
+
+      if (options.method === 'DELETE') {
+        const parts = cleanEndpoint.split('/');
+        const catId = parts[3];
+        const updated = categories.filter((c) => c.id !== catId);
+        saveStoredCategories(updated);
+        return { success: true, message: 'Category deleted' };
+      }
+
       return {
         success: true,
-        categories: DEMO_CATEGORIES,
+        categories,
       };
     }
 
-    // 7. Menu Items Fallback (Supports search, veg, category filtering)
+    // 7. Menu Items Fallback (Supports GET with filters, POST, PATCH, DELETE, toggle-stock)
     if (cleanEndpoint.startsWith('/menu/items')) {
+      const menuItems = getStoredMenuItems();
+      const categories = getStoredCategories();
+
+      if (options.method === 'POST' && options.body) {
+        const body = JSON.parse(options.body as string);
+        const catObj = categories.find((c) => c.id === body.categoryId) || categories[0];
+        const newItem = {
+          id: `item_${Date.now()}`,
+          categoryId: body.categoryId || catObj?.id,
+          name: body.name,
+          description: body.description || '',
+          price: parseFloat(body.price) || 0,
+          imageUrl: body.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&auto=format&fit=crop&q=80',
+          isVeg: body.isVeg !== undefined ? body.isVeg : true,
+          isChefSpecial: body.isChefSpecial || false,
+          isAvailable: body.isAvailable !== undefined ? body.isAvailable : true,
+          spicyLevel: parseInt(body.spicyLevel) || 0,
+          preparationTimeMin: parseInt(body.preparationTimeMin) || 15,
+          calories: parseInt(body.calories) || 350,
+          sortOrder: menuItems.length + 1,
+          category: catObj,
+        };
+        const updated = [...menuItems, newItem];
+        saveStoredMenuItems(updated);
+        return { success: true, item: newItem };
+      }
+
+      if (options.method === 'PATCH') {
+        const parts = cleanEndpoint.split('?')[0].split('/');
+        const itemId = parts[3];
+
+        if (cleanEndpoint.includes('/toggle-stock')) {
+          const updated = menuItems.map((it) =>
+            it.id === itemId ? { ...it, isAvailable: !it.isAvailable } : it
+          );
+          saveStoredMenuItems(updated);
+          return { success: true, item: updated.find((it) => it.id === itemId) };
+        }
+
+        if (options.body) {
+          const body = JSON.parse(options.body as string);
+          const updated = menuItems.map((it) => {
+            if (it.id === itemId) {
+              const catObj = body.categoryId
+                ? categories.find((c) => c.id === body.categoryId) || it.category
+                : it.category;
+              return { ...it, ...body, category: catObj };
+            }
+            return it;
+          });
+          saveStoredMenuItems(updated);
+          return { success: true, item: updated.find((it) => it.id === itemId) };
+        }
+      }
+
+      if (options.method === 'DELETE') {
+        const parts = cleanEndpoint.split('/');
+        const itemId = parts[3];
+        const updated = menuItems.filter((it) => it.id !== itemId);
+        saveStoredMenuItems(updated);
+        return { success: true, message: 'Item deleted' };
+      }
+
       try {
         const fakeUrl = new URL(`http://localhost${cleanEndpoint}`);
         const categoryId = fakeUrl.searchParams.get('categoryId');
@@ -808,7 +1093,7 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
         const isVeg = fakeUrl.searchParams.get('isVeg');
         const availableOnly = fakeUrl.searchParams.get('availableOnly') === 'true';
 
-        let filtered = [...DEMO_MENU_ITEMS];
+        let filtered = [...menuItems];
 
         if (categoryId && categoryId !== 'all') {
           filtered = filtered.filter((item) => item.categoryId === categoryId);
@@ -828,7 +1113,7 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
             (item) =>
               item.name.toLowerCase().includes(search) ||
               item.description?.toLowerCase().includes(search) ||
-              item.category?.name.toLowerCase().includes(search)
+              item.category?.name?.toLowerCase().includes(search)
           );
         }
 
@@ -840,8 +1125,8 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
       } catch {
         return {
           success: true,
-          items: DEMO_MENU_ITEMS,
-          total: DEMO_MENU_ITEMS.length,
+          items: menuItems,
+          total: menuItems.length,
         };
       }
     }
@@ -849,6 +1134,8 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
     // 8. Orders Fallback (List, Create, Status Update, Get)
     if (cleanEndpoint.startsWith('/orders')) {
       const allOrders = getStoredOrders();
+      const currentTables = getStoredTables();
+      const currentMenuItems = getStoredMenuItems();
 
       if (options.method === 'POST' && options.body) {
         const body = JSON.parse(options.body as string);
@@ -861,13 +1148,13 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
 
         const newOrderNum = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
         const tableObj =
-          DEMO_TABLES.find((t) => t.id === body.tableId || t.qrToken === body.qrToken) ||
-          DEMO_TABLES[0];
+          currentTables.find((t) => t.id === body.tableId || t.qrToken === body.qrToken) ||
+          currentTables[0];
 
         // Accurately map items with names and prices from catalog if not directly provided
         let computedSubtotal = 0;
         const resolvedItems = (body.items || []).map((it: any, idx: number) => {
-          const menuItem = DEMO_MENU_ITEMS.find((m) => m.id === it.menuItemId);
+          const menuItem = currentMenuItems.find((m) => m.id === it.menuItemId);
           const name = it.name || menuItem?.name || 'Gourmet Dish';
           const unitPrice =
             typeof it.unitPrice === 'number'
@@ -976,7 +1263,7 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
       if (idMatch && !cleanEndpoint.includes('?')) {
         const orderId = idMatch[1];
         const found = allOrders.find((o) => o.id === orderId || o.orderNumber === orderId) || allOrders[0];
-        return { success: true, order: found, hotel: DEMO_SETTINGS };
+        return { success: true, order: found, hotel: getStoredSettings() };
       }
 
       // Filter query params
@@ -1069,6 +1356,7 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
     // 11. Dashboard Overview & Sales Reports Fallback
     if (cleanEndpoint.startsWith('/reports/overview')) {
       const allOrders = getStoredOrders();
+      const currentTables = getStoredTables();
       const todayRevenue = allOrders
         .filter((o) => o.paymentStatus === 'PAID')
         .reduce((sum, o) => sum + (o.total || 0), 0);
@@ -1082,9 +1370,9 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
           todayRevenue: parseFloat(todayRevenue.toFixed(2)),
           todayOrdersCount: allOrders.length,
           activeOrdersCount,
-          occupiedTables: Math.min(DEMO_TABLES.length, Math.max(1, activeOrdersCount)),
-          totalTables: DEMO_TABLES.length,
-          tableOccupancyRate: Math.round((Math.min(DEMO_TABLES.length, Math.max(1, activeOrdersCount)) / DEMO_TABLES.length) * 100),
+          occupiedTables: Math.min(currentTables.length, Math.max(0, activeOrdersCount)),
+          totalTables: currentTables.length,
+          tableOccupancyRate: currentTables.length > 0 ? Math.round((Math.min(currentTables.length, Math.max(0, activeOrdersCount)) / currentTables.length) * 100) : 0,
           pendingWaiterCalls: 0,
           statusCounts: {
             NEW: allOrders.filter((o) => o.status === 'NEW').length,
@@ -1102,6 +1390,7 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
 
     if (cleanEndpoint.startsWith('/reports/sales')) {
       const allOrders = getStoredOrders();
+      const currentMenuItems = getStoredMenuItems();
       const totalRev = allOrders.reduce((sum, o) => sum + (o.total || 0), 0);
       return {
         success: true,
@@ -1109,7 +1398,7 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
           todayTotal: parseFloat(totalRev.toFixed(2)),
           weeklyTotal: parseFloat((totalRev * 6.5).toFixed(2)),
           monthlyTotal: parseFloat((totalRev * 28).toFixed(2)),
-          topSelling: DEMO_MENU_ITEMS.slice(0, 5),
+          topSelling: currentMenuItems.slice(0, 5),
         },
       };
     }

@@ -29,7 +29,7 @@ import { Order, OrderStatus } from '../../types';
 export default function KitchenKDSPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedTable, setSelectedTable] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('active');
+  const [statusFilter, setStatusFilter] = useState<string>('all'); // Default to all so previous orders remain visible after restart
   const [searchQuery, setSearchQuery] = useState('');
   const [activeReceiptOrder, setActiveReceiptOrder] = useState<Order | null>(null);
   const [receiptType, setReceiptType] = useState<'KOT' | 'BILL'>('KOT');
@@ -226,17 +226,16 @@ export default function KitchenKDSPage() {
       {/* Filter Toolbar */}
       <section className="mt-6 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
         <div className="flex flex-wrap items-center gap-2">
-          {['active', 'NEW', 'ACCEPTED', 'PREPARING', 'READY', 'all'].map((filter) => (
+          {['all', 'active', 'NEW', 'ACCEPTED', 'PREPARING', 'READY'].map((filter) => (
             <button
               key={filter}
               onClick={() => setStatusFilter(filter)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-                statusFilter === filter
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${statusFilter === filter
                   ? 'gold-gradient-bg text-slate-950 border-amber-400 shadow-md shadow-amber-500/10'
                   : 'bg-slate-900/80 text-slate-400 border-slate-800 hover:text-slate-200'
-              }`}
+                }`}
             >
-              {filter === 'active' ? 'Active Kitchen (All)' : filter === 'all' ? 'All Orders' : filter}
+              {filter === 'all' ? 'All Orders' : filter === 'active' ? 'Active Kitchen' : filter}
             </button>
           ))}
         </div>
@@ -278,13 +277,12 @@ export default function KitchenKDSPage() {
               return (
                 <div
                   key={order.id}
-                  className={`rounded-2xl flex flex-col justify-between border bg-slate-900/90 shadow-lg overflow-hidden transition-all ${
-                    isUrgent
+                  className={`rounded-2xl flex flex-col justify-between border bg-slate-900/90 shadow-lg overflow-hidden transition-all ${isUrgent
                       ? 'border-rose-500/60 shadow-rose-500/10'
                       : order.status === 'NEW'
-                      ? 'border-amber-500/60 shadow-amber-500/10'
-                      : 'border-slate-800'
-                  }`}
+                        ? 'border-amber-500/60 shadow-amber-500/10'
+                        : 'border-slate-800'
+                    }`}
                 >
                   {/* Card Header */}
                   <div className="p-4 border-b border-slate-800 flex items-start justify-between bg-slate-950/40">

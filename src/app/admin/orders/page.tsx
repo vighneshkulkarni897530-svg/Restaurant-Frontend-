@@ -26,7 +26,7 @@ import { Order, OrderStatus } from '../../../types';
 export default function AdminOrdersKDSPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedTable, setSelectedTable] = useState<string>('all');
-  const [statusFilter, setStatusFilter] = useState<string>('active');
+  const [statusFilter, setStatusFilter] = useState<string>('all'); // Default to 'all' so previous and active orders are visible immediately upon restart
   const [searchQuery, setSearchQuery] = useState('');
   const [activeReceiptOrder, setActiveReceiptOrder] = useState<Order | null>(null);
   const [receiptType, setReceiptType] = useState<'KOT' | 'BILL'>('KOT');
@@ -185,19 +185,18 @@ export default function AdminOrdersKDSPage() {
         {/* Status Filter Chips */}
         <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto">
           {[
-            { id: 'active', label: 'Active Pipeline', count: orders.filter((o) => ['NEW', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED'].includes(o.status)).length },
             { id: 'all', label: 'All Orders', count: orders.length },
+            { id: 'active', label: 'Active Pipeline', count: orders.filter((o) => ['NEW', 'ACCEPTED', 'PREPARING', 'READY', 'SERVED'].includes(o.status)).length },
             { id: 'completed', label: 'Completed', count: orders.filter((o) => o.status === 'COMPLETED').length },
             { id: 'cancelled', label: 'Cancelled', count: orders.filter((o) => o.status === 'CANCELLED').length },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setStatusFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${
-                statusFilter === tab.id
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 ${statusFilter === tab.id
                   ? 'gold-gradient-bg text-slate-950 shadow-md shadow-amber-500/20'
                   : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
-              }`}
+                }`}
             >
               <span>{tab.label}</span>
               <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${statusFilter === tab.id ? 'bg-slate-950 text-amber-300' : 'bg-slate-800 text-slate-400'}`}>
@@ -388,11 +387,10 @@ function OrderCard({
             {order.customerName || 'Guest Diner'}
           </span>
           <span
-            className={`font-extrabold px-2 py-0.5 rounded-md ${
-              order.paymentStatus === 'PAID'
+            className={`font-extrabold px-2 py-0.5 rounded-md ${order.paymentStatus === 'PAID'
                 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
                 : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-            }`}
+              }`}
           >
             {order.paymentStatus} ({order.payment?.provider === 'CASH' ? 'Cash' : 'Online'})
           </span>

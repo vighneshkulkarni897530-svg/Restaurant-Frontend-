@@ -216,20 +216,19 @@ export default function OrderDetailsPage() {
         {/* Status Filter Tabs */}
         <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto">
           {[
-            { id: 'COMPLETED', label: 'Completed Orders' },
-            { id: 'SERVED', label: 'Served at Table' },
             { id: 'all', label: 'All Orders' },
             { id: 'NEW,ACCEPTED,PREPARING,READY', label: 'Active Pipeline' },
+            { id: 'SERVED', label: 'Served at Table' },
+            { id: 'COMPLETED', label: 'Completed Orders' },
             { id: 'CANCELLED', label: 'Cancelled' },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setStatusFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${
-                statusFilter === tab.id
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all shrink-0 ${statusFilter === tab.id
                   ? 'gold-gradient-bg text-slate-950 shadow-md shadow-amber-500/20'
                   : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
-              }`}
+                }`}
             >
               {tab.label}
             </button>
@@ -382,11 +381,10 @@ export default function OrderDetailsPage() {
                   {/* Payment Details */}
                   <td className="p-4">
                     <span
-                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
-                        isPaid
+                      className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${isPaid
                           ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                           : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-                      }`}
+                        }`}
                     >
                       {isPaid ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
                       <span>{order.paymentStatus}</span>
@@ -399,19 +397,18 @@ export default function OrderDetailsPage() {
                   {/* Order Status */}
                   <td className="p-4">
                     <span
-                      className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border ${
-                        order.status === 'COMPLETED'
+                      className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full border ${order.status === 'COMPLETED'
                           ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                           : order.status === 'SERVED'
-                          ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
-                          : order.status === 'PREPARING'
-                          ? 'bg-orange-500/20 text-orange-300 border-orange-500/40'
-                          : order.status === 'READY'
-                          ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
-                          : order.status === 'CANCELLED'
-                          ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
-                          : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                      }`}
+                            ? 'bg-blue-500/20 text-blue-300 border-blue-500/40'
+                            : order.status === 'PREPARING'
+                              ? 'bg-orange-500/20 text-orange-300 border-orange-500/40'
+                              : order.status === 'READY'
+                                ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+                                : order.status === 'CANCELLED'
+                                  ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                                  : 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                        }`}
                     >
                       {order.status}
                     </span>
@@ -564,11 +561,10 @@ export default function OrderDetailsPage() {
 
             {/* Modal Actions */}
             <div className="pt-3 flex items-center justify-between gap-2 border-t border-slate-800">
-              <span className={`text-xs font-bold px-3 py-1 rounded-full border ${
-                selectedDetailOrder.paymentStatus === 'PAID'
+              <span className={`text-xs font-bold px-3 py-1 rounded-full border ${selectedDetailOrder.paymentStatus === 'PAID'
                   ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
                   : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
-              }`}>
+                }`}>
                 {selectedDetailOrder.paymentStatus} ({selectedDetailOrder.payment?.paymentMethod || 'Cash/Online'})
               </span>
 
