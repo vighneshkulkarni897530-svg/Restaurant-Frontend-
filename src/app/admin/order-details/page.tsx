@@ -49,7 +49,15 @@ export default function OrderDetailsPage() {
         status: statusFilter === 'all' ? undefined : statusFilter,
         tableId: tableFilter === 'all' ? undefined : tableFilter,
       });
-      if (res.orders) setOrders(res.orders);
+      if (res.orders) {
+        const cleanOrders = res.orders.filter(
+          (o: Order) =>
+            !o.id?.startsWith('ord_demo_') &&
+            o.orderNumber !== 'ORD-1001' &&
+            o.orderNumber !== 'ORD-1002'
+        );
+        setOrders(cleanOrders);
+      }
     } catch (e) {
       console.error('Failed to load order details:', e);
     } finally {

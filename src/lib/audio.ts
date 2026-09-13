@@ -1,5 +1,5 @@
 // Audio Synthesizer using standard Web Audio API
-export const playSound = (type: 'new_order' | 'status_update' | 'waiter_bell' | 'success') => {
+export const playSound = (type: 'new_order' | 'status_update' | 'waiter_bell' | 'success' | 'beep') => {
   if (typeof window === 'undefined') return;
 
   try {
@@ -7,6 +7,20 @@ export const playSound = (type: 'new_order' | 'status_update' | 'waiter_bell' | 
     if (!AudioContextClass) return;
 
     const ctx = new AudioContextClass();
+
+    if (type === 'beep') {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.15);
+      return;
+    }
 
     if (type === 'new_order') {
       // 3-tone bright kitchen order alert chime (E5, G#5, B5)

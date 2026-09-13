@@ -42,7 +42,13 @@ export default function KitchenKDSPage() {
     try {
       const res = await api.listOrders();
       if (res.orders) {
-        setOrders(res.orders);
+        const cleanOrders = res.orders.filter(
+          (o: Order) =>
+            !o.id?.startsWith('ord_demo_') &&
+            o.orderNumber !== 'ORD-1001' &&
+            o.orderNumber !== 'ORD-1002'
+        );
+        setOrders(cleanOrders);
       }
     } catch (e) {
       console.error('Failed to load kitchen orders:', e);

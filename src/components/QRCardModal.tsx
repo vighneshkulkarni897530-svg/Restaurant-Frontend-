@@ -16,6 +16,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { Table } from '../types';
+import { api } from '../lib/api';
 
 interface QRCardModalProps {
   table: Table | null;
@@ -24,22 +25,57 @@ interface QRCardModalProps {
 }
 
 export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps) {
-  const [customHost, setCustomHost] = useState<string>('');
+  const [customHost, setCustomHost] = useState<string>('http://10.230.94.1:3000');
+  const [detectedIps, setDetectedIps] = useState<{ name: string; ip: string; isWifi?: boolean; isHotspot?: boolean }[]>([]);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copied, setCopied] = useState(false);
-  const [showAdvancedHost, setShowAdvancedHost] = useState(false);
 
-  // Initialize host from window.location
+  // Auto-detect and set LAN IP on mount
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const currentOrigin = window.location.origin;
-      // If accessed via localhost, suggest LAN IP if available
-      setCustomHost((prev) => prev || currentOrigin);
-    }
+    if (!isOpen) return;
+
+    const detectIp = async () => {
+      try {
+        const res = await api.getNetworkIp();
+        if (res.interfaces && Array.isArray(res.interfaces) && res.interfaces.length > 0) {
+          setDetectedIps(res.interfaces);
+        } else {
+          setDetectedIps([
+            { name: 'Wi-Fi Network (10.230.94.1)', ip: '10.230.94.1', isWifi: true, isHotspot: false },
+            { name: 'Mobile Hotspot (192.168.137.1)', ip: '192.168.137.1', isWifi: true, isHotspot: true },
+          ]);
+        }
+
+        const preferred = res.preferredIp || '10.230.94.1';
+        if (typeof window !== 'undefined') {
+          const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+          if (isLocal) {
+            setCustomHost(`http://${preferred}:3000`);
+          } else {
+            setCustomHost(window.location.origin);
+          }
+        }
+      } catch {
+        setDetectedIps([
+          { name: 'Wi-Fi Network (10.230.94.1)', ip: '10.230.94.1', isWifi: true, isHotspot: false },
+          { name: 'Mobile Hotspot (192.168.137.1)', ip: '192.168.137.1', isWifi: true, isHotspot: true },
+        ]);
+        if (typeof window !== 'undefined') {
+          const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+          if (isLocal) {
+            setCustomHost('http://10.230.94.1:3000');
+          } else {
+            setCustomHost(window.location.origin);
+          }
+        }
+      }
+    };
+
+    detectIp();
   }, [isOpen]);
 
   // Compute final menu URL based on customHost and table qrToken
-  const activeOrigin = customHost.trim().replace(/\/$/, '') || (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+  const activeOrigin = customHost.trim().replace(/\/$/, '') || 'http://10.230.94.1:3000';
   const menuUrl = table ? `${activeOrigin}/menu?table=${table.qrToken}` : '';
 
   useEffect(() => {
@@ -98,7 +134,7 @@ export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps
             </div>
             <div>
               <h3 className="font-bold text-white text-base">Table QR Stand Generator</h3>
-              <p className="text-[11px] text-slate-400">Scannable from any phone camera on your network</p>
+              <p className="text-[11px] text-slate-400">Scannable from any mobile phone camera</p>
             </div>
           </div>
           <button
@@ -110,68 +146,63 @@ export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps
         </div>
 
         {/* Server IP / Host Configuration for Mobile Access */}
-        <div className="mt-3 p-3 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs space-y-2">
+        <div className="mt-3 p-3.5 rounded-2xl bg-slate-950/90 border border-amber-500/30 text-xs space-y-2.5">
           <div className="flex items-center justify-between">
-            <span className="font-bold text-slate-300 flex items-center gap-1.5">
-              <Smartphone className="w-3.5 h-3.5 text-amber-400" />
-              <span>Mobile Phone Access Target URL</span>
+            <span className="font-bold text-amber-300 flex items-center gap-1.5">
+              <Smartphone className="w-4 h-4 text-amber-400" />
+              <span>Mobile Phone Target Address</span>
             </span>
-            <button
-              type="button"
-              onClick={() => setShowAdvancedHost(!showAdvancedHost)}
-              className="text-[11px] text-amber-400 hover:underline flex items-center gap-1"
-            >
-              <Settings className="w-3 h-3" />
-              <span>{showAdvancedHost ? 'Hide Settings' : 'Change Host IP'}</span>
-            </button>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold">
+              Live Network Sync
+            </span>
           </div>
 
-          {showAdvancedHost ? (
-            <div className="space-y-2 pt-1">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={customHost}
-                  onChange={(e) => setCustomHost(e.target.value)}
-                  placeholder="e.g. http://192.168.1.5:3000 or http://10.230.94.1:3000"
-                  className="flex-1 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono text-xs focus:outline-none focus:border-amber-400"
-                />
-              </div>
+          <p className="text-[11px] text-slate-400">
+            For phones to open the menu, ensure your phone is connected to the same Wi-Fi or PC Hotspot, and select the matching IP:
+          </p>
 
-              {/* Quick Preset Buttons */}
-              <div className="flex flex-wrap gap-1.5 text-[10px]">
-                <span className="text-slate-400 py-0.5">Quick Presets:</span>
-                <button
-                  type="button"
-                  onClick={() => setCustomHost('http://10.230.94.1:3000')}
-                  className="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 font-mono"
-                >
-                  Wi-Fi (10.230.94.1:3000)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCustomHost('http://192.168.137.1:3000')}
-                  className="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 font-mono"
-                >
-                  Hotspot (192.168.137.1:3000)
-                </button>
-                {typeof window !== 'undefined' && (
-                  <button
-                    type="button"
-                    onClick={() => setCustomHost(window.location.origin)}
-                    className="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-mono"
-                  >
-                    Current Host ({window.location.host})
-                  </button>
-                )}
-              </div>
-            </div>
-          ) : (
-            <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
-              <Globe className="w-3.5 h-3.5 text-emerald-400" />
-              <span>QR Destination: <strong className="text-white font-mono">{menuUrl}</strong></span>
-            </p>
-          )}
+          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+            {detectedIps.map((iface) => (
+              <button
+                key={iface.ip}
+                type="button"
+                onClick={() => setCustomHost(`http://${iface.ip}:3000`)}
+                className={`px-2.5 py-1 rounded-xl font-mono text-[11px] font-bold transition-all border ${
+                  customHost.includes(iface.ip)
+                    ? 'gold-gradient-bg text-slate-950 border-amber-400 shadow-md shadow-amber-500/20'
+                    : 'bg-slate-900 text-slate-300 border-slate-700 hover:border-amber-400/60'
+                }`}
+              >
+                {iface.isHotspot ? '🔥 ' : '📶 '}
+                {iface.name.replace(/\(.*\)/, '') || 'Interface'}: {iface.ip}:3000
+              </button>
+            ))}
+
+            {typeof window !== 'undefined' && (
+              <button
+                type="button"
+                onClick={() => setCustomHost(window.location.origin)}
+                className={`px-2.5 py-1 rounded-xl font-mono text-[11px] transition-all border ${
+                  customHost === window.location.origin
+                    ? 'gold-gradient-bg text-slate-950 border-amber-400'
+                    : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+                }`}
+              >
+                Localhost ({window.location.host})
+              </button>
+            )}
+          </div>
+
+          <div className="pt-1 flex items-center gap-2">
+            <span className="text-[10px] text-slate-500 shrink-0">Custom URL:</span>
+            <input
+              type="text"
+              value={customHost}
+              onChange={(e) => setCustomHost(e.target.value)}
+              placeholder="e.g. http://10.230.94.1:3000"
+              className="flex-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-white font-mono text-[11px] focus:outline-none focus:border-amber-400"
+            />
+          </div>
         </div>
 
         {/* Printable Branded Acrylic Stand Preview */}

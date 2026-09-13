@@ -411,122 +411,8 @@ export const DEMO_MENU_ITEMS = [
   },
 ];
 
-// 5. Initial Demo Orders
-export const INITIAL_DEMO_ORDERS: any[] = [
-  {
-    id: 'ord_demo_1001',
-    orderNumber: 'ORD-1001',
-    tableId: 'tbl_palms_02_b8e2',
-    customerName: 'Rahul Sharma',
-    customerPhone: '+91 98765 12345',
-    notes: 'Make it medium spicy, please deliver extra napkins.',
-    status: 'PREPARING',
-    paymentStatus: 'PAID',
-    subtotal: 710,
-    tax: 35.5,
-    serviceCharge: 17.75,
-    total: 763.25,
-    createdAt: new Date(Date.now() - 15 * 60000).toISOString(),
-    updatedAt: new Date(Date.now() - 5 * 60000).toISOString(),
-    table: {
-      id: 'tbl_palms_02_b8e2',
-      tableNumber: '02',
-      section: 'Main Dining Hall',
-      qrToken: 'tbl_palms_02_b8e2',
-    },
-    items: [
-      {
-        id: 'oi_1',
-        orderId: 'ord_demo_1001',
-        menuItemId: 'item_07',
-        name: 'Margherita Burrata Speciale',
-        quantity: 1,
-        unitPrice: 420,
-        itemTotal: 420,
-      },
-      {
-        id: 'oi_2',
-        orderId: 'ord_demo_1001',
-        menuItemId: 'item_04',
-        name: 'Crispy Peri-Peri Cheese Cigars',
-        quantity: 1,
-        unitPrice: 290,
-        itemTotal: 290,
-      },
-    ],
-    payment: {
-      id: 'pay_demo_1',
-      orderId: 'ord_demo_1001',
-      provider: 'ONLINE_RAZORPAY',
-      providerOrderId: 'order_mock_demo_01',
-      providerPaymentId: 'pay_mock_demo_01',
-      amount: 763.25,
-      status: 'COMPLETED',
-      paymentMethod: 'UPI',
-      createdAt: new Date(Date.now() - 15 * 60000).toISOString(),
-    },
-  },
-  {
-    id: 'ord_demo_1002',
-    orderNumber: 'ORD-1002',
-    tableId: 'tbl_palms_05_e5b5',
-    customerName: 'Priya & Friends',
-    customerPhone: '+91 98111 22233',
-    notes: 'Less ice in mojitos.',
-    status: 'NEW',
-    paymentStatus: 'PAID',
-    subtotal: 1060,
-    tax: 53.0,
-    serviceCharge: 26.5,
-    total: 1139.5,
-    createdAt: new Date(Date.now() - 5 * 60000).toISOString(),
-    updatedAt: new Date(Date.now() - 5 * 60000).toISOString(),
-    table: {
-      id: 'tbl_palms_05_e5b5',
-      tableNumber: '05',
-      section: 'Garden Terrace',
-      qrToken: 'tbl_palms_05_e5b5',
-    },
-    items: [
-      {
-        id: 'oi_3',
-        orderId: 'ord_demo_1002',
-        menuItemId: 'item_02',
-        name: 'Smoked Butter Chicken Supreme',
-        quantity: 1,
-        unitPrice: 540,
-        itemTotal: 540,
-      },
-      {
-        id: 'oi_4',
-        orderId: 'ord_demo_1002',
-        menuItemId: 'item_11',
-        name: 'Double Cheddar Gourmet Chicken Smash',
-        quantity: 1,
-        unitPrice: 390,
-        itemTotal: 390,
-      },
-      {
-        id: 'oi_5',
-        orderId: 'ord_demo_1002',
-        menuItemId: 'item_14',
-        name: 'Sparkling Passion Fruit & Mint Mojito',
-        quantity: 1,
-        unitPrice: 210,
-        itemTotal: 210,
-      },
-    ],
-    payment: {
-      id: 'pay_demo_2',
-      orderId: 'ord_demo_1002',
-      provider: 'ONLINE_RAZORPAY',
-      amount: 1139.5,
-      status: 'COMPLETED',
-      paymentMethod: 'Card',
-      createdAt: new Date(Date.now() - 5 * 60000).toISOString(),
-    },
-  },
-];
+// 5. Initial Demo Orders (Empty for clean production state)
+export const INITIAL_DEMO_ORDERS: any[] = [];
 
 let inMemoryOrders: any[] | null = null;
 let inMemoryTables: any[] | null = null;
@@ -536,7 +422,7 @@ let inMemorySettings: any | null = null;
 
 export const getStoredOrders = (): any[] => {
   if (typeof window === 'undefined') {
-    return inMemoryOrders || INITIAL_DEMO_ORDERS;
+    return inMemoryOrders || [];
   }
 
   try {
@@ -544,26 +430,39 @@ export const getStoredOrders = (): any[] => {
     if (raw !== null) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        inMemoryOrders = parsed;
-        return parsed;
+        // Filter out any leftover demo orders
+        const cleanOrders = parsed.filter(
+          (o) =>
+            !o.id?.startsWith('ord_demo_') &&
+            o.orderNumber !== 'ORD-1001' &&
+            o.orderNumber !== 'ORD-1002'
+        );
+        inMemoryOrders = cleanOrders;
+        return cleanOrders;
       }
     }
   } catch (e) {
     console.error('Error reading stored orders:', e);
   }
 
-  inMemoryOrders = INITIAL_DEMO_ORDERS;
+  inMemoryOrders = [];
   try {
-    localStorage.setItem('hotel_mock_orders', JSON.stringify(INITIAL_DEMO_ORDERS));
+    localStorage.setItem('hotel_mock_orders', JSON.stringify([]));
   } catch { }
-  return INITIAL_DEMO_ORDERS;
+  return [];
 };
 
 export const saveStoredOrders = (orders: any[]) => {
-  inMemoryOrders = orders;
+  const cleanOrders = (orders || []).filter(
+    (o) =>
+      !o.id?.startsWith('ord_demo_') &&
+      o.orderNumber !== 'ORD-1001' &&
+      o.orderNumber !== 'ORD-1002'
+  );
+  inMemoryOrders = cleanOrders;
   if (typeof window !== 'undefined') {
     try {
-      localStorage.setItem('hotel_mock_orders', JSON.stringify(orders));
+      localStorage.setItem('hotel_mock_orders', JSON.stringify(cleanOrders));
     } catch (e) {
       console.error('Error saving stored orders:', e);
     }
@@ -1403,6 +1302,18 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
       };
     }
 
+    if (cleanEndpoint.startsWith('/network-ip')) {
+      return {
+        success: true,
+        preferredIp: '10.230.94.1',
+        frontendUrl: 'http://10.230.94.1:3000',
+        interfaces: [
+          { name: 'Wi-Fi', ip: '10.230.94.1', isWifi: true },
+          { name: 'Wi-Fi 3 (Hotspot)', ip: '192.168.137.1', isWifi: true },
+        ],
+      };
+    }
+
     throw err;
   }
 }
@@ -1416,6 +1327,9 @@ export const api = {
   deleteTable: (id: string) => fetchApi(`/tables/${id}`, { method: 'DELETE' }),
   regenerateQR: (id: string) => fetchApi(`/tables/${id}/regenerate-qr`, { method: 'POST' }),
   getTableQRCode: (id: string) => fetchApi(`/tables/${id}/qr-code`),
+
+  // Network Discovery
+  getNetworkIp: () => fetchApi('/network-ip'),
 
   // Menu
   getCategories: (includeInactive = false) => fetchApi(`/menu/categories?includeInactive=${includeInactive}`),
