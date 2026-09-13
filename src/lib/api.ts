@@ -1,4 +1,13 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
+export const getApiBaseUrl = (): string => {
+  if (typeof window !== 'undefined') {
+    const envUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+      return envUrl.replace(/\/$/, '');
+    }
+    return '/api';
+  }
+  return (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:5000/api').replace(/\/$/, '');
+};
 
 // 1. Demo Hotel Settings
 export const DEMO_SETTINGS = {
@@ -658,10 +667,23 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  const baseUrl = getApiBaseUrl();
+  let cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+
+  let requestUrl: string;
+  if (cleanEndpoint.startsWith('http://') || cleanEndpoint.startsWith('https://')) {
+    requestUrl = cleanEndpoint;
+  } else {
+    if (baseUrl.endsWith('/api') && cleanEndpoint.startsWith('/api/')) {
+      cleanEndpoint = cleanEndpoint.replace(/^\/api/, '');
+    } else if (!baseUrl.endsWith('/api') && !cleanEndpoint.startsWith('/api/')) {
+      cleanEndpoint = `/api${cleanEndpoint}`;
+    }
+    requestUrl = `${baseUrl}${cleanEndpoint}`;
+  }
 
   try {
-    const response = await fetch(`${API_BASE_URL}${cleanEndpoint}`, {
+    const response = await fetch(requestUrl, {
       ...options,
       headers,
     });
