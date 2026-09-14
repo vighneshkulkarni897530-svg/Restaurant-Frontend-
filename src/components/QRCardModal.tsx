@@ -28,7 +28,7 @@ interface QRCardModalProps {
 
 // Canonical Production Customer Base URL
 export const PRODUCTION_CUSTOMER_URL =
-  (process.env.NEXT_PUBLIC_CUSTOMER_URL || 'https://restaurant-frontend-smoky.vercel.app').replace(/\/$/, '');
+  (process.env.NEXT_PUBLIC_CUSTOMER_URL || 'https://restaurant-frontend-tau-liart.vercel.app').replace(/\/$/, '');
 
 export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps) {
   const [customHost, setCustomHost] = useState<string>(PRODUCTION_CUSTOMER_URL);
@@ -175,7 +175,7 @@ export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps
               }`}
             >
               <Globe className="w-3.5 h-3.5" />
-              <span>Production Live (restaurant-frontend-smoky.vercel.app)</span>
+              <span>Production Live (restaurant-frontend-tau-liart.vercel.app)</span>
             </button>
 
             {/* Localhost / LAN Testing Options */}
@@ -220,7 +220,7 @@ export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps
               type="text"
               value={customHost}
               onChange={(e) => setCustomHost(e.target.value)}
-              placeholder="e.g. https://restaurant-frontend-smoky.vercel.app"
+              placeholder="e.g. https://restaurant-frontend-tau-liart.vercel.app"
               className="flex-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-white font-mono text-[11px] focus:outline-none focus:border-amber-400"
             />
           </div>

@@ -233,7 +233,7 @@ export default function AdminTablesPage() {
 
                 <div className="flex items-center justify-between gap-1 pt-1">
                   <a
-                    href={`${(process.env.NEXT_PUBLIC_CUSTOMER_URL || '').replace(/\/$/, '')}/menu?table=${table.qrToken}`}
+                    href={`${(process.env.NEXT_PUBLIC_CUSTOMER_URL || 'https://restaurant-frontend-tau-liart.vercel.app').replace(/\/$/, '')}/menu?table=${table.qrToken}`}
                     target="_blank"
                     rel="noreferrer"
                     className="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-amber-400 text-xs font-semibold flex items-center gap-1 transition-colors"
