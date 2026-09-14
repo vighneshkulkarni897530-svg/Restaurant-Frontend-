@@ -7,13 +7,19 @@ export async function GET(
 ) {
   const store = getServerStore();
   const token = params.token;
-  const match =
-    store.tables.find(
-      (t) =>
-        t.qrToken.toLowerCase() === token.toLowerCase() ||
-        t.id.toLowerCase() === token.toLowerCase() ||
-        t.tableNumber.toLowerCase() === token.toLowerCase()
-    ) || store.tables[0];
+  const match = store.tables.find(
+    (t) =>
+      t.qrToken.toLowerCase() === token.toLowerCase() ||
+      t.id.toLowerCase() === token.toLowerCase() ||
+      t.tableNumber.toLowerCase() === token.toLowerCase()
+  );
+
+  if (!match) {
+    return NextResponse.json(
+      { success: false, message: 'Invalid or expired table QR code.' },
+      { status: 404 }
+    );
+  }
 
   return NextResponse.json({
     success: true,

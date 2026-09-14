@@ -46,10 +46,15 @@ function MenuContent() {
           if (res.success && res.table) {
             setTable(res.table);
             if (res.hotel) setHotel(res.hotel);
+            setTableError('');
+          } else {
+            setTable(null);
+            setTableError(res.message || 'Invalid or expired table QR code.');
           }
         } catch (err: any) {
           console.error('Failed to resolve table QR:', err);
-          setTableError(err.message || 'Invalid table QR token.');
+          setTable(null);
+          setTableError(err.message || 'Invalid or expired table QR code.');
         }
       }
     };
