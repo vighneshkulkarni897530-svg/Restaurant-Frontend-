@@ -26,9 +26,16 @@ interface QRCardModalProps {
   onClose: () => void;
 }
 
+const getValidProductionUrl = () => {
+  const envUrl = process.env.NEXT_PUBLIC_CUSTOMER_URL?.trim();
+  if (envUrl && !envUrl.includes('smoky.vercel.app') && !envUrl.includes('r1sqderz8')) {
+    return envUrl.replace(/\/$/, '');
+  }
+  return 'https://restaurant-frontend-tau-liart.vercel.app';
+};
+
 // Canonical Production Customer Base URL
-export const PRODUCTION_CUSTOMER_URL =
-  (process.env.NEXT_PUBLIC_CUSTOMER_URL || 'https://restaurant-frontend-tau-liart.vercel.app').replace(/\/$/, '');
+export const PRODUCTION_CUSTOMER_URL = getValidProductionUrl();
 
 export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps) {
   const [customHost, setCustomHost] = useState<string>(PRODUCTION_CUSTOMER_URL);
@@ -66,7 +73,11 @@ export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps
   }, [isOpen]);
 
   // Compute final menu URL based on selected customHost and table qrToken
-  const activeOrigin = (customHost.trim() || PRODUCTION_CUSTOMER_URL).replace(/\/$/, '');
+  let rawHost = (customHost.trim() || PRODUCTION_CUSTOMER_URL).replace(/\/$/, '');
+  if (rawHost.includes('restaurant-frontend-smoky.vercel.app')) {
+    rawHost = PRODUCTION_CUSTOMER_URL;
+  }
+  const activeOrigin = rawHost;
   const menuUrl = table ? `${activeOrigin}/menu?table=${table.qrToken}` : '';
 
   // Generate crisp QR code whenever table or menuUrl changes
@@ -175,7 +186,7 @@ export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps
               }`}
             >
               <Globe className="w-3.5 h-3.5" />
-              <span>Production Live (restaurant-frontend-tau-liart.vercel.app)</span>
+              <span>Production Live ({PRODUCTION_CUSTOMER_URL.replace(/^https?:\/\//, '')})</span>
             </button>
 
             {/* Localhost / LAN Testing Options */}
@@ -218,9 +229,9 @@ export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps
             <span className="text-[10px] text-slate-500 shrink-0">Custom Base URL:</span>
             <input
               type="text"
-              value={customHost}
+              value={customHost.includes('restaurant-frontend-smoky.vercel.app') || customHost.includes('r1sqderz8') ? PRODUCTION_CUSTOMER_URL : customHost}
               onChange={(e) => setCustomHost(e.target.value)}
-              placeholder="e.g. https://restaurant-frontend-tau-liart.vercel.app"
+              placeholder={`e.g. ${PRODUCTION_CUSTOMER_URL}`}
               className="flex-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-white font-mono text-[11px] focus:outline-none focus:border-amber-400"
             />
           </div>
