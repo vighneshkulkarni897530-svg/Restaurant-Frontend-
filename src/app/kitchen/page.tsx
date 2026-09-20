@@ -24,6 +24,7 @@ import ReceiptModal from '../../components/ReceiptModal';
 import { api, subscribeToLocalOrderEvents } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
 import { playSound } from '../../lib/audio';
+import { firebaseDb } from '../../lib/firebaseDb';
 import { Order, OrderStatus } from '../../types';
 
 export default function KitchenKDSPage() {
@@ -68,9 +69,32 @@ export default function KitchenKDSPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // 2. Real-Time Socket.IO & Cross-Tab Listener
+  // 2. Real-Time Multi-Source Listeners (Firestore Cloud + Socket.IO + Local Cross-Tab)
   useEffect(() => {
-    // A. Socket.IO
+    // A. Real-Time Firebase Cloud Firestore listener for active kitchen orders
+    const unsubFirestore = firebaseDb.listenToActiveOrders((firestoreOrders) => {
+      if (firestoreOrders && Array.isArray(firestoreOrders)) {
+        const cleanOrders = firestoreOrders.filter(
+          (o: Order) =>
+            !o.id?.startsWith('ord_demo_') &&
+            o.orderNumber !== 'ORD-1001' &&
+            o.orderNumber !== 'ORD-1002'
+        );
+
+        setOrders((prev) => {
+          const prevIds = new Set(prev.map((o) => o.id));
+          const hasNew = cleanOrders.some((fo) => !prevIds.has(fo.id));
+          if (hasNew && prev.length > 0) {
+            console.log('⚡ Kitchen KDS received new order via Firebase Cloud Firestore!');
+            playSound('new_order');
+          }
+          return cleanOrders;
+        });
+        setIsLoading(false);
+      }
+    });
+
+    // B. Socket.IO
     const socket = getSocket();
     socket.emit('join_admin');
 
@@ -95,7 +119,7 @@ export default function KitchenKDSPage() {
     socket.on('order:new', handleNewOrder);
     socket.on('order:status_updated', handleStatusUpdate);
 
-    // B. Local Cross-Tab Events
+    // C. Local Cross-Tab Events
     const unsubscribeLocal = subscribeToLocalOrderEvents((event, data) => {
       if (event === 'order:new' && data) {
         handleNewOrder(data);
@@ -105,6 +129,7 @@ export default function KitchenKDSPage() {
     });
 
     return () => {
+      if (unsubFirestore) unsubFirestore();
       socket.off('order:new', handleNewOrder);
       socket.off('order:status_updated', handleStatusUpdate);
       unsubscribeLocal();
@@ -113,12 +138,23 @@ export default function KitchenKDSPage() {
 
   const handleUpdateStatus = async (orderId: string, newStatus: OrderStatus) => {
     try {
+      // 1. Optimistic UI update
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+      );
+      playSound('status_update');
+
+      // 2. Sync to Firebase Cloud Firestore in real time
+      firebaseDb.updateOrderStatus(orderId, newStatus).catch((e) => {
+        console.warn('[Kitchen] Failed to update Firestore status:', e);
+      });
+
+      // 3. Sync to API backend
       const res = await api.updateOrderStatus(orderId, newStatus);
       if (res.success && res.order) {
         setOrders((prev) =>
           prev.map((o) => (o.id === orderId ? res.order : o))
         );
-        playSound('status_update');
       }
     } catch (e) {
       console.error('Failed to update kitchen status:', e);

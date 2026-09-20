@@ -26,6 +26,7 @@ import PaymentModal from '../../../components/PaymentModal';
 import { api, subscribeToLocalOrderEvents } from '../../../lib/api';
 import { getSocket } from '../../../lib/socket';
 import { playSound } from '../../../lib/audio';
+import { firebaseDb } from '../../../lib/firebaseDb';
 import { Order, OrderStatus } from '../../../types';
 
 export default function OrderTrackingPage() {
@@ -78,11 +79,25 @@ export default function OrderTrackingPage() {
     return () => clearInterval(interval);
   }, [orderId]);
 
-  // 3. Real-Time Socket.IO & Cross-Tab Events Listener
+  // 3. Real-Time Multi-Source Listeners (Firebase Firestore + Socket.IO + Local Cross-Tab)
   useEffect(() => {
     if (!orderId) return;
 
-    // A. Socket.IO Listener
+    // A. Real-Time Firebase Cloud Firestore listener
+    const unsubFirestore = firebaseDb.listenToOrder(orderId, (updatedOrder) => {
+      if (updatedOrder) {
+        setOrder((prev) => {
+          if (prev && prev.status !== updatedOrder.status) {
+            console.log('⚡ Live Firestore order update received:', prev.status, '->', updatedOrder.status);
+            playSound('status_update');
+          }
+          return updatedOrder;
+        });
+        setIsLoading(false);
+      }
+    });
+
+    // B. Socket.IO Listener
     const socket = getSocket();
     socket.emit('join_order', orderId);
 
@@ -96,7 +111,7 @@ export default function OrderTrackingPage() {
 
     socket.on('order:status_updated', handleStatusUpdate);
 
-    // B. Local Cross-Tab Event Listener (BroadcastChannel / CustomEvent / Storage)
+    // C. Local Cross-Tab Event Listener (BroadcastChannel / CustomEvent / Storage)
     const unsubscribeLocal = subscribeToLocalOrderEvents((event, data) => {
       if (event === 'order:status_updated' && data && (data.id === orderId || data.orderNumber === orderId)) {
         console.log('⚡ Received live order status update via local channel:', data.status);
@@ -106,6 +121,7 @@ export default function OrderTrackingPage() {
     });
 
     return () => {
+      if (unsubFirestore) unsubFirestore();
       socket.off('order:status_updated', handleStatusUpdate);
       unsubscribeLocal();
     };

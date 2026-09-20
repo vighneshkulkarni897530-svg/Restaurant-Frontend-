@@ -3,22 +3,22 @@ import { getAuth, Auth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 
-// Firebase configuration from environment variables
+// Official Live Firebase configuration for TableTap / Govinda's Restaurant
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyDemoSampleGovindasKey123456789',
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'govindas-restaurant-qr.firebaseapp.com',
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'govindas-restaurant-qr',
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'govindas-restaurant-qr.appspot.com',
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '108123456789',
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:108123456789:web:abcdef1234567890',
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || 'G-GOVINDAS108',
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyAHO-oTwLkdYUGCeO74n9bZX56fUJ9eBQo',
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'tabletap-67dea.firebaseapp.com',
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'tabletap-67dea',
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'tabletap-67dea.firebasestorage.app',
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '695563822210',
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || '1:695563822210:web:9b059e65c7b2e77ab4809b',
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID || 'G-MCLCSVEVVH',
 };
 
-// Check if actual credentials have been provided by user
+// Check if Firebase is properly configured
 export const isFirebaseConfigured = Boolean(
-  process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
-  process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID &&
-  process.env.NEXT_PUBLIC_FIREBASE_API_KEY !== 'AIzaSyDemoSampleGovindasKey123456789'
+  firebaseConfig.apiKey &&
+  firebaseConfig.projectId &&
+  firebaseConfig.apiKey !== 'AIzaSyDemoSampleGovindasKey123456789'
 );
 
 let app: FirebaseApp | undefined;

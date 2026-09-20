@@ -5,6 +5,7 @@ import { BellRing, X, GlassWater, Sparkles, Receipt, CheckCircle, AlertCircle } 
 import { useCart } from '../context/CartContext';
 import { api } from '../lib/api';
 import { playSound } from '../lib/audio';
+import { firebaseDb } from '../lib/firebaseDb';
 
 interface CallWaiterModalProps {
   isOpen: boolean;
@@ -60,6 +61,22 @@ export default function CallWaiterModal({ isOpen, onClose }: CallWaiterModalProp
     setErrorMessage('');
 
     try {
+      // 1. Sync to Firebase Cloud Firestore in real time
+      firebaseDb.saveWaiterCall({
+        id: `call_${Date.now()}`,
+        tableId: table.id,
+        requestType: selectedType,
+        notes: notes.trim() || undefined,
+        status: 'PENDING',
+        createdAt: new Date().toISOString(),
+        table: {
+          tableNumber: table.tableNumber,
+          section: table.section || 'Dining Room',
+        },
+      }).catch((e) => {
+        console.warn('[CallWaiter] Firebase sync notice:', e);
+      });
+
       const res = await api.callWaiter({
         tableId: table.id,
         qrToken: table.qrToken,

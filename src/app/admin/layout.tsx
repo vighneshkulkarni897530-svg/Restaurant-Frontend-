@@ -27,6 +27,7 @@ import { useAuth } from '../../context/AuthContext';
 import { api } from '../../lib/api';
 import { getSocket } from '../../lib/socket';
 import { playSound } from '../../lib/audio';
+import { firebaseDb } from '../../lib/firebaseDb';
 import { WaiterCall } from '../../types';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
@@ -61,6 +62,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     loadCalls();
 
+    // Firebase Cloud Firestore live listener for table assistance calls
+    const unsubCalls = firebaseDb.listenToPendingWaiterCalls((calls) => {
+      if (calls && Array.isArray(calls)) {
+        setPendingCalls((prev) => {
+          if (calls.length > prev.length && soundEnabled) {
+            playSound('waiter_bell');
+          }
+          return calls;
+        });
+      }
+    });
+
     const socket = getSocket();
     socket.emit('join_admin');
 
@@ -77,6 +90,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     socket.on('waiter:call', handleWaiterCall);
 
     return () => {
+      if (unsubCalls) unsubCalls();
       socket.off('order:new', handleNewOrder);
       socket.off('waiter:call', handleWaiterCall);
     };

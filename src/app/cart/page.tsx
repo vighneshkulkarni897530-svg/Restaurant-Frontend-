@@ -25,6 +25,7 @@ import Navbar from '../../components/Navbar';
 import { useCart } from '../../context/CartContext';
 import { api } from '../../lib/api';
 import { playSound } from '../../lib/audio';
+import { firebaseDb } from '../../lib/firebaseDb';
 
 import PaymentModal from '../../components/PaymentModal';
 
@@ -102,6 +103,13 @@ export default function CartPage() {
       const res = await api.createOrder(orderPayload);
 
       if (res.success && res.order) {
+        // Sync order to live Firebase Cloud Firestore in real time
+        try {
+          await firebaseDb.saveOrder(res.order);
+        } catch (fbErr) {
+          console.warn('[Cart] Firebase live sync notice:', fbErr);
+        }
+
         if (typeof window !== 'undefined') {
           localStorage.setItem('hotel_current_order_id', res.order.id);
         }

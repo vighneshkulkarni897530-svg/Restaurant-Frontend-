@@ -26,6 +26,7 @@ import {
 import ReceiptModal from '../../../components/ReceiptModal';
 import { api, subscribeToLocalOrderEvents } from '../../../lib/api';
 import { getSocket } from '../../../lib/socket';
+import { firebaseDb } from '../../../lib/firebaseDb';
 import { Order, OrderStatus } from '../../../types';
 
 export default function OrderDetailsPage() {
@@ -75,8 +76,21 @@ export default function OrderDetailsPage() {
     return () => clearInterval(interval);
   }, [statusFilter, tableFilter]);
 
-  // Real-Time Socket & Cross-Tab Listener
+  // Real-Time Firebase Firestore, Socket & Cross-Tab Listener
   useEffect(() => {
+    const unsubFirestore = firebaseDb.listenToAllOrders((firestoreOrders) => {
+      if (firestoreOrders && Array.isArray(firestoreOrders)) {
+        const cleanOrders = firestoreOrders.filter(
+          (o: Order) =>
+            !o.id?.startsWith('ord_demo_') &&
+            o.orderNumber !== 'ORD-1001' &&
+            o.orderNumber !== 'ORD-1002'
+        );
+        setOrders(cleanOrders);
+        setIsLoading(false);
+      }
+    });
+
     const socket = getSocket();
     socket.emit('join_admin');
 
@@ -92,6 +106,7 @@ export default function OrderDetailsPage() {
     });
 
     return () => {
+      if (unsubFirestore) unsubFirestore();
       socket.off('order:new', handleEvent);
       socket.off('order:status_updated', handleEvent);
       unsubscribeLocal();
