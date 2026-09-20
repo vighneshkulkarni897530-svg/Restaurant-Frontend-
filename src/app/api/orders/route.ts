@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerStore, ServerOrder } from '@/lib/serverStore';
+import { fetchCloudOrders, saveCloudOrder } from '@/lib/cloudOrdersStore';
 
 const getBackendUrl = () => process.env.INTERNAL_BACKEND_URL || 'http://127.0.0.1:5000';
 
@@ -9,7 +10,7 @@ export async function GET(req: Request) {
   const statusParam = searchParams.get('status');
   const tableIdParam = searchParams.get('tableId');
 
-  // Try forwarding to Express backend first
+  // 1. Try forwarding to Express backend first (when running locally or connected to Render backend)
   try {
     const urlObj = new URL(req.url);
     const backendRes = await fetch(`${getBackendUrl()}/api/orders${urlObj.search}`, {
@@ -23,16 +24,17 @@ export async function GET(req: Request) {
     if (backendRes.ok) {
       const data = await backendRes.json();
       if (data.orders && Array.isArray(data.orders)) {
-        // Keep Next.js in-memory store synchronized
         store.orders = data.orders;
       }
       return NextResponse.json(data);
     }
   } catch {
-    // Express backend unavailable, proceed to local store
+    // Express backend unavailable (e.g. running standalone on Vercel)
   }
 
-  let filtered = [...store.orders];
+  // 2. Fetch persistent cloud orders (synced across all Vercel instances, phones, and computers)
+  const cloudOrders = await fetchCloudOrders();
+  let filtered = [...cloudOrders];
 
   if (statusParam && statusParam !== 'all') {
     const statuses = statusParam.split(',');
@@ -64,7 +66,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1. Attempt to forward order directly to Express Backend (triggers Socket.IO & Prisma DB persistence)
+    // 1. Attempt to forward order directly to Express Backend (if running locally or on Render)
     try {
       const backendRes = await fetch(`${getBackendUrl()}/api/orders`, {
         method: 'POST',
@@ -77,15 +79,15 @@ export async function POST(req: Request) {
       if (backendRes.ok) {
         const backendData = await backendRes.json();
         if (backendData.order) {
-          store.orders.unshift(backendData.order);
+          await saveCloudOrder(backendData.order);
         }
         return NextResponse.json(backendData, { status: 201 });
       }
     } catch {
-      // Express backend unavailable, fall back to Next.js server store
+      // Express backend unavailable, proceed to cloud sync
     }
 
-    // 2. Next.js ServerStore Local Fallback
+    // 2. Generate and resolve order for Cloud & ServerStore persistence
     const newOrderNum = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
     const tableObj =
       store.tables.find((t) => t.id === body.tableId || t.qrToken === body.qrToken) ||
@@ -164,7 +166,8 @@ export async function POST(req: Request) {
       },
     };
 
-    store.orders.unshift(createdOrder);
+    // Save to persistent cloud store so ALL phones, laptops, and Vercel instances see this order immediately!
+    await saveCloudOrder(createdOrder);
 
     // Update table occupancy in local store
     if (tableObj) {

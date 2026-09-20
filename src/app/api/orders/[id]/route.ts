@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerStore } from '@/lib/serverStore';
+import { fetchCloudOrders } from '@/lib/cloudOrdersStore';
 
 const getBackendUrl = () => process.env.INTERNAL_BACKEND_URL || 'http://127.0.0.1:5000';
 
@@ -27,8 +28,11 @@ export async function GET(
     // Backend offline
   }
 
-  // 2. Fallback to serverStore
-  const found = store.orders.find((o) => o.id === id || o.orderNumber === id);
+  // 2. Fetch from cloud store
+  const cloudOrders = await fetchCloudOrders();
+  const found = cloudOrders.find((o) => o.id === id || o.orderNumber === id) ||
+    store.orders.find((o) => o.id === id || o.orderNumber === id);
+
   if (!found) {
     return NextResponse.json({ success: false, message: 'Order not found' }, { status: 404 });
   }

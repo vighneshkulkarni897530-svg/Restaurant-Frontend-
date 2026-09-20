@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerStore } from '@/lib/serverStore';
+import { updateCloudOrderStatus } from '@/lib/cloudOrdersStore';
 
 const getBackendUrl = () => process.env.INTERNAL_BACKEND_URL || 'http://127.0.0.1:5000';
 
@@ -25,10 +26,12 @@ export async function PATCH(
 
       if (backendRes.ok) {
         const data = await backendRes.json();
-        // Sync local store
         const idx = store.orders.findIndex((o) => o.id === id || o.orderNumber === id);
         if (idx !== -1 && data.order) {
           store.orders[idx] = data.order;
+        }
+        if (data.order && body.status) {
+          await updateCloudOrderStatus(id, body.status);
         }
         return NextResponse.json(data);
       }
@@ -36,12 +39,17 @@ export async function PATCH(
       // Backend offline
     }
 
-    // 2. Fallback to serverStore
+    // 2. Update cloud store & serverStore
+    if (body.status) {
+      const updated = await updateCloudOrderStatus(id, body.status);
+      if (updated) {
+        return NextResponse.json({ success: true, order: updated });
+      }
+    }
+
     const target = store.orders.find((o) => o.id === id || o.orderNumber === id);
     if (target) {
-      if (body.status) {
-        target.status = body.status;
-      }
+      if (body.status) target.status = body.status;
       target.updatedAt = new Date().toISOString();
       return NextResponse.json({ success: true, order: target });
     }
