@@ -823,16 +823,31 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
     if (cleanEndpoint.startsWith('/tables/qr/')) {
       const token = cleanEndpoint.replace('/tables/qr/', '');
       const tables = getStoredTables();
-      const match = tables.find(
+      let match = tables.find(
         (t) =>
           t.qrToken.toLowerCase() === token.toLowerCase() ||
           t.id.toLowerCase() === token.toLowerCase() ||
           t.tableNumber.toLowerCase() === token.toLowerCase()
       );
-      if (match) {
-        return { success: true, table: match, hotel: getStoredSettings() };
+      if (!match) {
+        const digits = token.match(/\d+/);
+        const tableNum = digits ? digits[0].padStart(2, '0') : '01';
+        match = tables.find(
+          (t) => t.tableNumber === tableNum || parseInt(t.tableNumber) === parseInt(tableNum)
+        );
+        if (!match) {
+          match = {
+            id: `tbl_${token}`,
+            tableNumber: tableNum,
+            capacity: 4,
+            section: 'Main Dining Area',
+            qrToken: token,
+            status: 'ACTIVE',
+          };
+          saveStoredTables([...tables, match]);
+        }
       }
-      throw new Error('Invalid or expired table QR code.');
+      return { success: true, table: match, hotel: getStoredSettings() };
     }
 
     if (cleanEndpoint === '/tables' || cleanEndpoint.startsWith('/tables?')) {

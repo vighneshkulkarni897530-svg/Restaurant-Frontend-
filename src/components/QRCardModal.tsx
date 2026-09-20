@@ -55,8 +55,10 @@ export const sanitizeHostUrl = (url: string): string => {
   return clean;
 };
 
+const CLOUD_PROD_URL = 'https://restaurant-frontend-tau-liart.vercel.app';
+
 export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps) {
-  const [customHost, setCustomHost] = useState<string>('');
+  const [customHost, setCustomHost] = useState<string>(CLOUD_PROD_URL);
   const [detectedIps, setDetectedIps] = useState<{ name: string; ip: string; isWifi?: boolean; isHotspot?: boolean }[]>([]);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copied, setCopied] = useState(false);
@@ -67,48 +69,20 @@ export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps
   useEffect(() => {
     if (!isOpen) return;
 
-    const isLocalhost =
-      typeof window !== 'undefined' &&
-      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    // Default to the live cloud URL so ANY phone on ANY network (cellular or Wi-Fi) can scan immediately
+    const prodUrl = process.env.NEXT_PUBLIC_CUSTOMER_URL || CLOUD_PROD_URL;
+    setCustomHost(prodUrl);
 
-    const isLan =
-      typeof window !== 'undefined' && isPrivateIp(window.location.hostname);
-
-    const isLiveWeb =
-      typeof window !== 'undefined' && !isLocalhost && !isLan;
-
-    // If running on live cloud (e.g. Vercel / custom domain), default to current origin
-    if (isLiveWeb) {
-      setCustomHost(window.location.origin);
-    } else if (isLan) {
-      setCustomHost(window.location.origin);
-    }
-
-    // Attempt to discover local Wi-Fi interfaces if running locally
+    // Discover local Wi-Fi interfaces for optional LAN testing
     const detectIp = async () => {
       try {
         const res = await api.getNetworkIp();
         const validLanIfaces = (res.interfaces || []).filter(
           (iface: any) => iface.ip && isPrivateIp(iface.ip)
         );
-
         setDetectedIps(validLanIfaces);
-
-        if (isLocalhost) {
-          const preferredLanIp = res.preferredIp && isPrivateIp(res.preferredIp)
-            ? res.preferredIp
-            : validLanIfaces[0]?.ip;
-
-          if (preferredLanIp) {
-            setCustomHost(`http://${preferredLanIp}:${currentPort}`);
-          } else {
-            setCustomHost(window.location.origin);
-          }
-        }
-      } catch {
-        if (isLocalhost) {
-          setCustomHost(window.location.origin);
-        }
+      } catch (err) {
+        console.warn('[QRModal] Local IP discovery notice:', err);
       }
     };
 
@@ -116,7 +90,7 @@ export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps
   }, [isOpen]);
 
   // Compute clean host
-  const fallbackHost = typeof window !== 'undefined' ? window.location.origin : 'https://restaurant-frontend-tau-liart.vercel.app';
+  const fallbackHost = process.env.NEXT_PUBLIC_CUSTOMER_URL || CLOUD_PROD_URL;
   const activeOrigin = sanitizeHostUrl(customHost || fallbackHost);
   const menuUrl = table ? `${activeOrigin}/menu?table=${table.qrToken}` : '';
 
@@ -191,17 +165,17 @@ export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps
           </button>
         </div>
 
-        {/* Target Address Configuration */}
+        {/* Target Address Selector */}
         <div className="mt-3.5 p-3.5 rounded-2xl bg-slate-950/90 border border-amber-500/30 text-xs space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="font-bold text-amber-300 flex items-center gap-1.5">
               <Globe className="w-4 h-4 text-amber-400" />
-              <span>QR Code Destination Domain</span>
+              <span>Target QR Mode</span>
             </span>
             {isLiveHttps ? (
               <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3" />
-                <span>Live HTTPS Domain</span>
+                <span>Global Cloud QR (Recommended)</span>
               </span>
             ) : isLanSelected ? (
               <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold flex items-center gap-1">
@@ -210,40 +184,32 @@ export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps
               </span>
             ) : (
               <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-slate-700 text-slate-300 font-semibold">
-                Local Host
+                Localhost
               </span>
             )}
           </div>
 
-          <p className="text-[11px] text-slate-400">
-            {isLiveHttps
-              ? 'This QR code is generated for your live online restaurant deployment. Any smartphone can scan it directly.'
-              : 'Select your target address. For testing from a mobile phone on the same Wi-Fi, select the Local Wi-Fi IP:'}
-          </p>
+          <div className="flex flex-wrap items-center gap-2 pt-0.5">
+            {/* 1. Production Cloud Button (DEFAULT) */}
+            <button
+              type="button"
+              onClick={() => setCustomHost(CLOUD_PROD_URL)}
+              className={`px-3 py-2 rounded-xl text-[11px] transition-all border flex items-center gap-1.5 ${
+                activeOrigin === CLOUD_PROD_URL
+                  ? 'gold-gradient-bg text-slate-950 border-amber-400 shadow-md shadow-amber-500/25 font-bold'
+                  : 'bg-slate-900 text-slate-300 border-slate-700 hover:border-amber-400/60'
+              }`}
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>🌐 Global Cloud QR (Vercel)</span>
+              {activeOrigin === CLOUD_PROD_URL && (
+                <span className="text-[9px] px-1.5 py-0.2 bg-slate-950 text-amber-400 rounded font-black">
+                  ACTIVE
+                </span>
+              )}
+            </button>
 
-          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-            {/* Current Browser Origin Button */}
-            {typeof window !== 'undefined' && (
-              <button
-                type="button"
-                onClick={() => setCustomHost(window.location.origin)}
-                className={`px-3 py-1.5 rounded-xl font-mono text-[11px] transition-all border flex items-center gap-1.5 ${
-                  customHost === window.location.origin || activeOrigin === window.location.origin
-                    ? 'gold-gradient-bg text-slate-950 border-amber-400 shadow-md shadow-amber-500/25 font-bold'
-                    : 'bg-slate-900 text-slate-300 border-slate-700 hover:border-amber-400/60'
-                }`}
-              >
-                <Globe className="w-3.5 h-3.5" />
-                <span>Current Domain ({window.location.host})</span>
-                {(customHost === window.location.origin || activeOrigin === window.location.origin) && (
-                  <span className="text-[9px] px-1 py-0.2 bg-slate-950 text-amber-400 rounded font-black">
-                    ACTIVE
-                  </span>
-                )}
-              </button>
-            )}
-
-            {/* Local Wi-Fi IPs (Shown only when local network interfaces exist) */}
+            {/* 2. Local Wi-Fi IP Button */}
             {detectedIps.map((iface) => {
               const lanHost = `http://${iface.ip}:${currentPort}`;
               const isSelected = activeOrigin === lanHost;
@@ -252,44 +218,60 @@ export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps
                   key={iface.ip}
                   type="button"
                   onClick={() => setCustomHost(lanHost)}
-                  className={`px-3 py-1.5 rounded-xl font-mono text-[11px] transition-all border flex items-center gap-1.5 ${
+                  className={`px-3 py-2 rounded-xl text-[11px] transition-all border flex items-center gap-1.5 ${
                     isSelected
                       ? 'gold-gradient-bg text-slate-950 border-amber-400 shadow-md shadow-amber-500/25 font-bold'
                       : 'bg-slate-900 text-slate-300 border-slate-700 hover:border-amber-400/60'
                   }`}
                 >
-                  {iface.isHotspot ? '🔥' : '📶'}
-                  <span>
-                    {iface.name.replace(/\(.*\)/, '').trim() || 'Wi-Fi'}: {iface.ip}:{currentPort}
-                  </span>
+                  <Wifi className="w-3.5 h-3.5 text-amber-400" />
+                  <span>📶 Local Wi-Fi ({iface.ip}:{currentPort})</span>
                   {isSelected && (
-                    <span className="text-[9px] px-1 py-0.2 bg-slate-950 text-amber-400 rounded font-black">
+                    <span className="text-[9px] px-1.5 py-0.2 bg-slate-950 text-amber-400 rounded font-black">
                       ACTIVE
                     </span>
                   )}
                 </button>
               );
             })}
-          </div>
 
-          <div className="pt-1 flex items-center gap-2">
-            <span className="text-[10px] text-slate-500 shrink-0">Custom Base URL:</span>
-            <input
-              type="text"
-              value={customHost}
-              onChange={(e) => setCustomHost(e.target.value)}
-              placeholder={`e.g. ${typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com'}`}
-              className="flex-1 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-white font-mono text-[11px] focus:outline-none focus:border-amber-400"
-            />
+            {/* 3. Localhost Button */}
+            {typeof window !== 'undefined' && window.location.hostname === 'localhost' && (
+              <button
+                type="button"
+                onClick={() => setCustomHost(window.location.origin)}
+                className={`px-3 py-2 rounded-xl text-[11px] transition-all border flex items-center gap-1.5 ${
+                  activeOrigin === window.location.origin
+                    ? 'gold-gradient-bg text-slate-950 border-amber-400 shadow-md shadow-amber-500/25 font-bold'
+                    : 'bg-slate-900 text-slate-300 border-slate-700 hover:border-amber-400/60'
+                }`}
+              >
+                <Monitor className="w-3.5 h-3.5" />
+                <span>💻 Localhost Browser</span>
+                {activeOrigin === window.location.origin && (
+                  <span className="text-[9px] px-1.5 py-0.2 bg-slate-950 text-amber-400 rounded font-black">
+                    ACTIVE
+                  </span>
+                )}
+              </button>
+            )}
           </div>
 
           {/* Active URL confirmation */}
-          <div className="p-2 rounded-xl bg-slate-900/90 border border-slate-800 text-[11px] text-slate-300 flex items-start gap-2">
-            <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-            <div className="truncate">
-              <span>QR code points to: </span>
-              <strong className="text-amber-400 font-mono">{activeOrigin}</strong>
+          <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-[11px] text-slate-300 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 truncate">
+              <Info className="w-4 h-4 text-amber-400 shrink-0" />
+              <span className="truncate">
+                QR encodes: <strong className="text-amber-400 font-mono">{menuUrl}</strong>
+              </span>
             </div>
+            <button
+              type="button"
+              onClick={handleCopyLink}
+              className="text-[10px] px-2 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded font-semibold shrink-0"
+            >
+              {copied ? 'Copied!' : 'Copy'}
+            </button>
           </div>
         </div>
 
@@ -341,23 +323,6 @@ export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps
             <Wifi className="w-3 h-3 text-amber-400" />
             <span>Complimentary WiFi: <strong className="text-amber-400">Govindas_Guest_WiFi</strong></span>
           </div>
-        </div>
-
-        {/* Quick URL Box */}
-        <div className="flex items-center gap-2 p-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs">
-          <input
-            type="text"
-            readOnly
-            value={menuUrl}
-            className="flex-1 bg-transparent text-slate-300 truncate outline-none px-1 font-mono text-[11px]"
-          />
-          <button
-            onClick={handleCopyLink}
-            className="flex items-center gap-1 px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors shrink-0"
-          >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-            <span>{copied ? 'Copied' : 'Copy'}</span>
-          </button>
         </div>
 
         {/* Action Buttons */}
