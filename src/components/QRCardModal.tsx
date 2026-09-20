@@ -20,42 +20,19 @@ import {
 } from 'lucide-react';
 import { Table } from '../types';
 import { api } from '../lib/api';
+import {
+  getAppBaseUrl,
+  buildTableQRUrl,
+  sanitizeHostUrl,
+  isPrivateIp,
+  CLOUD_PROD_URL,
+} from '../lib/urlUtils';
 
 interface QRCardModalProps {
   table: Table | null;
   isOpen: boolean;
   onClose: () => void;
 }
-
-const isPrivateIp = (ip: string) => {
-  return /^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(ip);
-};
-
-export const sanitizeHostUrl = (url: string): string => {
-  if (!url) return '';
-  let clean = url.trim().replace(/\/$/, '');
-
-  // If running on Vercel or any cloud domain, strip invalid :3000 or http://
-  if (clean.includes('vercel.app') || (clean.startsWith('https://') && clean.includes(':3000'))) {
-    clean = clean.replace(':3000', '');
-    if (clean.startsWith('http://')) {
-      clean = clean.replace('http://', 'https://');
-    }
-  }
-
-  // Ensure protocol
-  if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
-    if (isPrivateIp(clean) || clean.includes('localhost') || clean.startsWith('127.0.0.1')) {
-      clean = `http://${clean}`;
-    } else {
-      clean = `https://${clean}`;
-    }
-  }
-
-  return clean;
-};
-
-const CLOUD_PROD_URL = 'https://restaurant-frontend-tau-liart.vercel.app';
 
 export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps) {
   const [customHost, setCustomHost] = useState<string>(CLOUD_PROD_URL);
@@ -69,8 +46,8 @@ export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps
   useEffect(() => {
     if (!isOpen) return;
 
-    // Default to the live cloud URL so ANY phone on ANY network (cellular or Wi-Fi) can scan immediately
-    const prodUrl = process.env.NEXT_PUBLIC_CUSTOMER_URL || CLOUD_PROD_URL;
+    // Default to the robust cloud/production URL so ANY phone on ANY network can scan immediately
+    const prodUrl = getAppBaseUrl();
     setCustomHost(prodUrl);
 
     // Discover local Wi-Fi interfaces for optional LAN testing
@@ -89,10 +66,9 @@ export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps
     detectIp();
   }, [isOpen]);
 
-  // Compute clean host
-  const fallbackHost = process.env.NEXT_PUBLIC_CUSTOMER_URL || CLOUD_PROD_URL;
-  const activeOrigin = sanitizeHostUrl(customHost || fallbackHost);
-  const menuUrl = table ? `${activeOrigin}/menu?table=${table.qrToken}` : '';
+  // Compute clean host & robust table URL
+  const activeOrigin = sanitizeHostUrl(customHost || getAppBaseUrl());
+  const menuUrl = table ? buildTableQRUrl(table, activeOrigin) : '';
 
   // Generate crisp QR code whenever table or menuUrl changes
   useEffect(() => {

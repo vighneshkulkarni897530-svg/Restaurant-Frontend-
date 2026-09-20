@@ -10,6 +10,13 @@ export async function GET(
   const store = getServerStore();
   const token = params.token;
 
+  if (!token) {
+    return NextResponse.json(
+      { success: false, message: 'QR token is required' },
+      { status: 400 }
+    );
+  }
+
   // 1. Try Express backend if available
   try {
     const backendRes = await fetch(`${getBackendUrl()}/api/tables/qr/${token}`, {
@@ -21,38 +28,32 @@ export async function GET(
       if (data.table) {
         return NextResponse.json(data);
       }
+    } else if (backendRes.status === 404) {
+      const data = await backendRes.json().catch(() => ({}));
+      return NextResponse.json(
+        { success: false, message: data.message || 'Invalid or inactive table QR code.' },
+        { status: 404 }
+      );
     }
   } catch {
-    // Backend offline
+    // Backend offline / Next.js standalone mode
   }
 
-  // 2. Exact match in server store
+  // 2. Exact or normalized match in server store
+  const padded = token.padStart(2, '0');
   let match = store.tables.find(
     (t) =>
       t.qrToken.toLowerCase() === token.toLowerCase() ||
       t.id.toLowerCase() === token.toLowerCase() ||
-      t.tableNumber.toLowerCase() === token.toLowerCase()
+      t.tableNumber.toLowerCase() === token.toLowerCase() ||
+      t.tableNumber.toLowerCase() === padded.toLowerCase()
   );
 
-  // 3. Smart fallback: Extract table number from token string (e.g. tbl_palms_01_a9f1 -> "01")
   if (!match) {
-    const digits = token.match(/\d+/);
-    const tableNum = digits ? digits[0].padStart(2, '0') : '01';
-    match = store.tables.find(
-      (t) => t.tableNumber === tableNum || parseInt(t.tableNumber) === parseInt(tableNum)
+    return NextResponse.json(
+      { success: false, message: 'Invalid or inactive table QR code.' },
+      { status: 404 }
     );
-
-    if (!match) {
-      match = {
-        id: `tbl_${token}`,
-        tableNumber: tableNum,
-        capacity: 4,
-        section: 'Main Dining Area',
-        qrToken: token,
-        status: 'ACTIVE',
-      };
-      store.tables.push(match);
-    }
   }
 
   return NextResponse.json({

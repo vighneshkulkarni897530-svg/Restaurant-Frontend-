@@ -91,22 +91,29 @@ export default function ScanPage() {
 
     // A. Check if raw text is a full URL
     try {
-      if (raw.startsWith('http://') || raw.startsWith('https://') || raw.includes('/menu') || raw.includes('?')) {
+      if (raw.startsWith('http://') || raw.startsWith('https://') || raw.includes('/menu') || raw.includes('/t/') || raw.includes('?')) {
         const urlObj = new URL(raw, typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
         const queryTable = urlObj.searchParams.get('table') || urlObj.searchParams.get('token') || urlObj.searchParams.get('t');
         if (queryTable) {
           targetToken = queryTable;
+        } else if (urlObj.pathname.includes('/t/')) {
+          targetToken = urlObj.pathname.split('/t/')[1]?.split('/')[0]?.split('?')[0] || raw;
         } else if (urlObj.pathname.includes('/tables/qr/')) {
-          targetToken = urlObj.pathname.split('/tables/qr/')[1]?.split('/')[0] || raw;
+          targetToken = urlObj.pathname.split('/tables/qr/')[1]?.split('/')[0]?.split('?')[0] || raw;
         } else if (urlObj.pathname.includes('/menu/')) {
-          targetToken = urlObj.pathname.split('/menu/')[1]?.split('/')[0] || raw;
+          targetToken = urlObj.pathname.split('/menu/')[1]?.split('/')[0]?.split('?')[0] || raw;
         }
       }
     } catch {
       // Fallback regex parsing if URL constructor fails
-      const tableMatch = raw.match(/[?&]table=([a-zA-Z0-9_-]+)/) || raw.match(/table=([a-zA-Z0-9_-]+)/);
-      if (tableMatch && tableMatch[1]) {
-        targetToken = tableMatch[1];
+      const tMatch = raw.match(/\/t\/([a-zA-Z0-9_-]+)/);
+      if (tMatch && tMatch[1]) {
+        targetToken = tMatch[1];
+      } else {
+        const tableMatch = raw.match(/[?&]table=([a-zA-Z0-9_-]+)/) || raw.match(/table=([a-zA-Z0-9_-]+)/);
+        if (tableMatch && tableMatch[1]) {
+          targetToken = tableMatch[1];
+        }
       }
     }
 

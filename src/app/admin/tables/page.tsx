@@ -19,6 +19,7 @@ import {
 import QRCardModal from '../../../components/QRCardModal';
 import { api } from '../../../lib/api';
 import { Table } from '../../../types';
+import { buildTableQRUrl } from '../../../lib/urlUtils';
 
 export default function AdminTablesPage() {
   const [tables, setTables] = useState<Table[]>([]);
@@ -233,7 +234,7 @@ export default function AdminTablesPage() {
 
                 <div className="flex items-center justify-between gap-1 pt-1">
                   <a
-                    href={`${(process.env.NEXT_PUBLIC_CUSTOMER_URL && !process.env.NEXT_PUBLIC_CUSTOMER_URL.includes('smoky.vercel.app') && !process.env.NEXT_PUBLIC_CUSTOMER_URL.includes('r1sqderz8') ? process.env.NEXT_PUBLIC_CUSTOMER_URL : 'https://restaurant-frontend-tau-liart.vercel.app').replace(/\/$/, '')}/menu?table=${table.qrToken}`}
+                    href={buildTableQRUrl(table, typeof window !== 'undefined' ? window.location.origin : undefined)}
                     target="_blank"
                     rel="noreferrer"
                     className="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-amber-400 text-xs font-semibold flex items-center gap-1 transition-colors"
