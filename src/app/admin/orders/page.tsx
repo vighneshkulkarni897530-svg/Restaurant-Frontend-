@@ -16,6 +16,7 @@ import {
   Check,
   Flame,
   ArrowRight,
+  RotateCcw,
 } from 'lucide-react';
 import ReceiptModal from '../../../components/ReceiptModal';
 import { api, subscribeToLocalOrderEvents } from '../../../lib/api';
@@ -159,6 +160,33 @@ export default function AdminOrdersKDSPage() {
     setIsReceiptOpen(true);
   };
 
+  const handleResetAllOrders = async () => {
+    if (
+      !window.confirm(
+        '⚠️ Reset System: Are you sure you want to remove ALL orders and start fresh from ORD-1001?\n\nThis will clear the active board, database orders, and reset table statuses to Available.'
+      )
+    ) {
+      return;
+    }
+    setIsLoading(true);
+    try {
+      setOrders([]);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('hotel_mock_orders', JSON.stringify([]));
+        localStorage.removeItem('hotel_current_order_id');
+      }
+      await api.clearAllOrders();
+      await firebaseDb.clearAllOrders();
+      playSound('success');
+      setOrders([]);
+      await loadOrders(false);
+    } catch (e) {
+      console.error('Failed to reset orders:', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Filter Orders
   const filteredOrders = orders.filter((o) => {
     if (selectedTable !== 'all' && o.table?.tableNumber !== selectedTable) {
@@ -213,6 +241,14 @@ export default function AdminOrdersKDSPage() {
             className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold transition-colors"
           >
             Refresh Orders
+          </button>
+          <button
+            onClick={handleResetAllOrders}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 text-rose-300 text-xs font-semibold transition-colors"
+            title="Wipe all orders from database & start fresh from ORD-1001"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
+            <span>Reset Orders</span>
           </button>
         </div>
       </div>

@@ -95,6 +95,27 @@ export const firebaseDb = {
     }
   },
 
+  // Clear all orders in Firestore
+  async clearAllOrders(): Promise<boolean> {
+    if (!isFirebaseConfigured || !db) return false;
+    const firestore = db;
+    try {
+      const { collection, getDocs, deleteDoc } = await import('firebase/firestore');
+      const ordersRef = collection(firestore, 'orders');
+      const snapshot = await getDocs(ordersRef);
+      const deletePromises: Promise<void>[] = [];
+      snapshot.forEach((d) => {
+        deletePromises.push(deleteDoc(d.ref));
+      });
+      await Promise.all(deletePromises);
+      console.log(`[Firestore] Deleted ${deletePromises.length} cloud order(s).`);
+      return true;
+    } catch (error) {
+      console.warn('[Firestore] Failed to clear cloud orders:', error);
+      return false;
+    }
+  },
+
   // Real-time listener for an individual order (Customer order tracking page)
   listenToOrder(orderId: string, onUpdate: (order: Order) => void): (() => void) | null {
     if (!isFirebaseConfigured || !db) return null;

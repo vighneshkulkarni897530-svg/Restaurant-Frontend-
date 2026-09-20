@@ -1181,6 +1181,12 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
         return { success: true };
       }
 
+      if (options.method === 'DELETE' || cleanEndpoint.includes('/clear')) {
+        saveStoredOrders([]);
+        broadcastLocalOrderEvent('order:status_updated', null);
+        return { success: true, message: 'All orders cleared' };
+      }
+
       const idMatch = cleanEndpoint.split('?')[0].match(/^\/orders\/([a-zA-Z0-9_-]+)$/);
       if (idMatch && !cleanEndpoint.includes('?')) {
         const orderId = idMatch[1];
@@ -1384,6 +1390,10 @@ export const api = {
   },
   updateOrderStatus: (id: string, status: string) => fetchApi(`/orders/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
   markPaymentReceived: (id: string) => fetchApi(`/orders/${id}/mark-paid`, { method: 'PATCH' }),
+  clearAllOrders: () => {
+    saveStoredOrders([]);
+    return fetchApi('/orders', { method: 'DELETE' });
+  },
 
   // Payment
   createRazorpayOrder: (amount: number, receipt?: string) => fetchApi('/payments/create-razorpay-order', { method: 'POST', body: JSON.stringify({ amount, receipt }) }),

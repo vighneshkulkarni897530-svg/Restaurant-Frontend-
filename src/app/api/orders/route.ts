@@ -179,3 +179,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, message: err.message }, { status: 400 });
   }
 }
+
+export async function DELETE() {
+  const store = getServerStore();
+  store.orders = [];
+
+  // 1. Forward to Express backend
+  try {
+    await fetch(`${getBackendUrl()}/api/orders/clear`, { method: 'DELETE' });
+  } catch {}
+
+  // 2. Clear cloud store
+  try {
+    const CLOUD_STORE_ID = 'ff808181a09d98f701a0bd3a61014d7e';
+    const CLOUD_API_URL = `https://api.restful-api.dev/objects/${CLOUD_STORE_ID}`;
+    await fetch(CLOUD_API_URL, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: 'Govindas_Orders_Store',
+        data: { orders: [], lastUpdated: new Date().toISOString() },
+      }),
+    });
+  } catch {}
+
+  return NextResponse.json({ success: true, message: 'All orders cleared' });
+}

@@ -22,10 +22,12 @@ import {
   ArrowUpDown,
   Sparkles,
   RefreshCw,
+  RotateCcw,
 } from 'lucide-react';
 import ReceiptModal from '../../../components/ReceiptModal';
 import { api, subscribeToLocalOrderEvents } from '../../../lib/api';
 import { getSocket } from '../../../lib/socket';
+import { playSound } from '../../../lib/audio';
 import { firebaseDb } from '../../../lib/firebaseDb';
 import { Order, OrderStatus } from '../../../types';
 import { mergeOrders } from '../../../lib/orderSync';
@@ -67,6 +69,33 @@ export default function OrderDetailsPage() {
       console.error('Failed to load order details:', e);
     } finally {
       if (showLoading) setIsLoading(false);
+    }
+  };
+
+  const handleResetAllOrders = async () => {
+    if (
+      !window.confirm(
+        '⚠️ Reset System: Are you sure you want to remove ALL orders and start fresh from ORD-1001?\n\nThis will clear all orders, database records, and reset table statuses to Available.'
+      )
+    ) {
+      return;
+    }
+    setIsLoading(true);
+    try {
+      setOrders([]);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('hotel_mock_orders', JSON.stringify([]));
+        localStorage.removeItem('hotel_current_order_id');
+      }
+      await api.clearAllOrders();
+      await firebaseDb.clearAllOrders();
+      playSound('success');
+      setOrders([]);
+      await loadOrders(false);
+    } catch (e) {
+      console.error('Failed to reset orders:', e);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -202,6 +231,15 @@ export default function OrderDetailsPage() {
           >
             <RefreshCw className="w-3.5 h-3.5" />
             <span>Refresh</span>
+          </button>
+
+          <button
+            onClick={handleResetAllOrders}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 text-rose-300 text-xs font-semibold transition-colors"
+            title="Wipe all orders from database & start fresh from ORD-1001"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
+            <span>Reset Orders</span>
           </button>
 
           <button
