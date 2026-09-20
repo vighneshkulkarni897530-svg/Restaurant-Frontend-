@@ -1311,14 +1311,14 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
     }
 
     if (cleanEndpoint.startsWith('/network-ip')) {
-      const host = typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? window.location.hostname : '127.0.0.1';
+      const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+      const isLan = typeof window !== 'undefined' && /^(192\.168\.|10\.|172\.)/.test(window.location.hostname);
+      const host = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
       return {
         success: true,
-        preferredIp: host,
+        preferredIp: isLan ? host : isLocal ? '127.0.0.1' : host,
         frontendUrl: typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000',
-        interfaces: [
-          { name: `Host (${host})`, ip: host, isWifi: true },
-        ],
+        interfaces: isLan ? [{ name: `LAN (${host})`, ip: host, isWifi: true }] : [],
       };
     }
 
