@@ -1311,13 +1311,13 @@ export async function fetchApi(endpoint: string, options: RequestInit = {}) {
     }
 
     if (cleanEndpoint.startsWith('/network-ip')) {
+      const host = typeof window !== 'undefined' && window.location.hostname !== 'localhost' ? window.location.hostname : '127.0.0.1';
       return {
         success: true,
-        preferredIp: '10.230.94.1',
-        frontendUrl: 'http://10.230.94.1:3000',
+        preferredIp: host,
+        frontendUrl: typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000',
         interfaces: [
-          { name: 'Wi-Fi', ip: '10.230.94.1', isWifi: true },
-          { name: 'Wi-Fi 3 (Hotspot)', ip: '192.168.137.1', isWifi: true },
+          { name: `Host (${host})`, ip: host, isWifi: true },
         ],
       };
     }

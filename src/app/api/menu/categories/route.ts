@@ -1,8 +1,28 @@
 import { NextResponse } from 'next/server';
 import { getServerStore } from '@/lib/serverStore';
 
-export async function GET() {
+const getBackendUrl = () => process.env.INTERNAL_BACKEND_URL || 'http://127.0.0.1:5000';
+
+export async function GET(req: Request) {
   const store = getServerStore();
+
+  try {
+    const urlObj = new URL(req.url);
+    const backendRes = await fetch(`${getBackendUrl()}/api/menu/categories${urlObj.search}`, {
+      cache: 'no-store',
+    });
+
+    if (backendRes.ok) {
+      const data = await backendRes.json();
+      if (data.categories && Array.isArray(data.categories)) {
+        store.categories = data.categories;
+      }
+      return NextResponse.json(data);
+    }
+  } catch {
+    // Backend offline
+  }
+
   return NextResponse.json({ success: true, categories: store.categories });
 }
 
@@ -10,6 +30,28 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const store = getServerStore();
+
+    try {
+      const backendRes = await fetch(`${getBackendUrl()}/api/menu/categories`, {
+        method: 'POST',
+        headers: {
+          'Authorization': req.headers.get('authorization') || '',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (backendRes.ok) {
+        const data = await backendRes.json();
+        if (data.category) {
+          store.categories.push(data.category);
+        }
+        return NextResponse.json(data);
+      }
+    } catch {
+      // Backend offline
+    }
+
     const newCat = {
       id: `cat_${Date.now()}`,
       name: body.name,

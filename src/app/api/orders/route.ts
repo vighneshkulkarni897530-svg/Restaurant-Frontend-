@@ -1,11 +1,36 @@
 import { NextResponse } from 'next/server';
 import { getServerStore, ServerOrder } from '@/lib/serverStore';
 
+const getBackendUrl = () => process.env.INTERNAL_BACKEND_URL || 'http://127.0.0.1:5000';
+
 export async function GET(req: Request) {
   const store = getServerStore();
   const { searchParams } = new URL(req.url);
   const statusParam = searchParams.get('status');
   const tableIdParam = searchParams.get('tableId');
+
+  // Try forwarding to Express backend first
+  try {
+    const urlObj = new URL(req.url);
+    const backendRes = await fetch(`${getBackendUrl()}/api/orders${urlObj.search}`, {
+      headers: {
+        'Authorization': req.headers.get('authorization') || '',
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store',
+    });
+
+    if (backendRes.ok) {
+      const data = await backendRes.json();
+      if (data.orders && Array.isArray(data.orders)) {
+        // Keep Next.js in-memory store synchronized
+        store.orders = data.orders;
+      }
+      return NextResponse.json(data);
+    }
+  } catch {
+    // Express backend unavailable, proceed to local store
+  }
 
   let filtered = [...store.orders];
 
@@ -39,6 +64,28 @@ export async function POST(req: Request) {
       );
     }
 
+    // 1. Attempt to forward order directly to Express Backend (triggers Socket.IO & Prisma DB persistence)
+    try {
+      const backendRes = await fetch(`${getBackendUrl()}/api/orders`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (backendRes.ok) {
+        const backendData = await backendRes.json();
+        if (backendData.order) {
+          store.orders.unshift(backendData.order);
+        }
+        return NextResponse.json(backendData, { status: 201 });
+      }
+    } catch {
+      // Express backend unavailable, fall back to Next.js server store
+    }
+
+    // 2. Next.js ServerStore Local Fallback
     const newOrderNum = `ORD-${Math.floor(1000 + Math.random() * 9000)}`;
     const tableObj =
       store.tables.find((t) => t.id === body.tableId || t.qrToken === body.qrToken) ||
@@ -119,7 +166,12 @@ export async function POST(req: Request) {
 
     store.orders.unshift(createdOrder);
 
-    return NextResponse.json({ success: true, order: createdOrder });
+    // Update table occupancy in local store
+    if (tableObj) {
+      tableObj.status = 'OCCUPIED';
+    }
+
+    return NextResponse.json({ success: true, order: createdOrder }, { status: 201 });
   } catch (err: any) {
     return NextResponse.json({ success: false, message: err.message }, { status: 400 });
   }

@@ -13,9 +13,10 @@ import {
   Wifi,
   Smartphone,
   Globe,
-  Settings,
+  Monitor,
   Flame,
   CheckCircle2,
+  Info,
 } from 'lucide-react';
 import { Table } from '../types';
 import { api } from '../lib/api';
@@ -38,34 +39,72 @@ const getValidProductionUrl = () => {
 export const PRODUCTION_CUSTOMER_URL = getValidProductionUrl();
 
 export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps) {
-  const [customHost, setCustomHost] = useState<string>(PRODUCTION_CUSTOMER_URL);
+  const [customHost, setCustomHost] = useState<string>('');
   const [detectedIps, setDetectedIps] = useState<{ name: string; ip: string; isWifi?: boolean; isHotspot?: boolean }[]>([]);
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copied, setCopied] = useState(false);
+  const [activeMode, setActiveMode] = useState<'WIFI' | 'PROD' | 'LOCAL'>('WIFI');
+
+  const currentPort = typeof window !== 'undefined' && window.location.port ? window.location.port : '3000';
 
   // Initialize and detect network interfaces
   useEffect(() => {
     if (!isOpen) return;
 
-    // Reset default to Production Customer URL on modal open
-    setCustomHost(PRODUCTION_CUSTOMER_URL);
+    const isLocalhost =
+      typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+    const isLanIp =
+      typeof window !== 'undefined' &&
+      /^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.)/.test(window.location.hostname);
+
+    const isProduction =
+      typeof window !== 'undefined' &&
+      !isLocalhost &&
+      !isLanIp &&
+      window.location.hostname.includes('.');
 
     const detectIp = async () => {
       try {
         const res = await api.getNetworkIp();
-        if (res.interfaces && Array.isArray(res.interfaces) && res.interfaces.length > 0) {
-          setDetectedIps(res.interfaces);
+        const ifaces = res.interfaces && Array.isArray(res.interfaces) && res.interfaces.length > 0
+          ? res.interfaces
+          : [];
+
+        setDetectedIps(ifaces);
+
+        const preferred = res.preferredIp && res.preferredIp !== '127.0.0.1'
+          ? res.preferredIp
+          : ifaces[0]?.ip;
+
+        if (isLocalhost) {
+          if (preferred) {
+            const lanUrl = `http://${preferred}:${currentPort}`;
+            setCustomHost(lanUrl);
+            setActiveMode('WIFI');
+          } else {
+            setCustomHost(window.location.origin);
+            setActiveMode('LOCAL');
+          }
+        } else if (isLanIp) {
+          setCustomHost(window.location.origin);
+          setActiveMode('WIFI');
+        } else if (isProduction) {
+          setCustomHost(window.location.origin);
+          setActiveMode('PROD');
         } else {
-          setDetectedIps([
-            { name: 'Wi-Fi Network (10.230.94.1)', ip: '10.230.94.1', isWifi: true, isHotspot: false },
-            { name: 'Mobile Hotspot (192.168.137.1)', ip: '192.168.137.1', isWifi: true, isHotspot: true },
-          ]);
+          setCustomHost(PRODUCTION_CUSTOMER_URL);
+          setActiveMode('PROD');
         }
       } catch {
-        setDetectedIps([
-          { name: 'Wi-Fi Network (10.230.94.1)', ip: '10.230.94.1', isWifi: true, isHotspot: false },
-          { name: 'Mobile Hotspot (192.168.137.1)', ip: '192.168.137.1', isWifi: true, isHotspot: true },
-        ]);
+        if (isLocalhost) {
+          setCustomHost(window.location.origin);
+          setActiveMode('LOCAL');
+        } else {
+          setCustomHost(PRODUCTION_CUSTOMER_URL);
+          setActiveMode('PROD');
+        }
       }
     };
 
@@ -73,7 +112,8 @@ export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps
   }, [isOpen]);
 
   // Compute final menu URL based on selected customHost and table qrToken
-  let rawHost = (customHost.trim() || PRODUCTION_CUSTOMER_URL).replace(/\/$/, '');
+  const fallbackHost = typeof window !== 'undefined' ? window.location.origin : PRODUCTION_CUSTOMER_URL;
+  let rawHost = (customHost.trim() || fallbackHost).replace(/\/$/, '');
   if (rawHost.includes('restaurant-frontend-smoky.vercel.app')) {
     rawHost = PRODUCTION_CUSTOMER_URL;
   }
@@ -106,8 +146,8 @@ export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps
 
   if (!isOpen || !table) return null;
 
-  const currentPort = typeof window !== 'undefined' && window.location.port ? window.location.port : '3000';
   const isProductionSelected = activeOrigin === PRODUCTION_CUSTOMER_URL;
+  const isLanSelected = /^(http:\/\/)(192\.168\.|10\.|172\.)/.test(activeOrigin);
 
   const handleCopyLink = () => {
     if (typeof navigator !== 'undefined') {
@@ -151,45 +191,36 @@ export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps
           </button>
         </div>
 
-        {/* Target Address Configuration (Production vs Local Testing) */}
+        {/* Target Address Configuration (Wi-Fi vs Production Cloud vs Local) */}
         <div className="mt-3.5 p-3.5 rounded-2xl bg-slate-950/90 border border-amber-500/30 text-xs space-y-2.5">
           <div className="flex items-center justify-between">
             <span className="font-bold text-amber-300 flex items-center gap-1.5">
               <Globe className="w-4 h-4 text-amber-400" />
-              <span>Customer Target Domain</span>
+              <span>QR Code Destination</span>
             </span>
-            {isProductionSelected ? (
+            {isLanSelected ? (
               <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-semibold flex items-center gap-1">
+                <Smartphone className="w-3 h-3" />
+                <span>Mobile Wi-Fi Scannable</span>
+              </span>
+            ) : isProductionSelected ? (
+              <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 font-semibold flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3" />
-                <span>Production Live QR</span>
+                <span>Production Cloud QR</span>
               </span>
             ) : (
               <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 font-semibold">
-                Local / Dev Testing
+                Local Host
               </span>
             )}
           </div>
 
           <p className="text-[11px] text-slate-400">
-            For physical acrylic standees, use the <strong>Production Live URL</strong>. Use local addresses only for offline development testing:
+            Select the destination for this QR code. For <strong>phone camera testing</strong>, use the <strong>Local Wi-Fi</strong> IP so your phone on the same Wi-Fi can directly reach this computer:
           </p>
 
           <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-            {/* Primary Production Customer URL Button */}
-            <button
-              type="button"
-              onClick={() => setCustomHost(PRODUCTION_CUSTOMER_URL)}
-              className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border flex items-center gap-1.5 ${
-                isProductionSelected
-                  ? 'gold-gradient-bg text-slate-950 border-amber-400 shadow-md shadow-amber-500/25'
-                  : 'bg-slate-900 text-slate-200 border-slate-700 hover:border-amber-400/60'
-              }`}
-            >
-              <Globe className="w-3.5 h-3.5" />
-              <span>Production Live ({PRODUCTION_CUSTOMER_URL.replace(/^https?:\/\//, '')})</span>
-            </button>
-
-            {/* Localhost / LAN Testing Options */}
+            {/* Wi-Fi / LAN IP Buttons (Recommended for Phone Scan) */}
             {detectedIps.map((iface) => {
               const lanHost = `http://${iface.ip}:${currentPort}`;
               const isSelected = customHost === lanHost;
@@ -197,30 +228,58 @@ export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps
                 <button
                   key={iface.ip}
                   type="button"
-                  onClick={() => setCustomHost(lanHost)}
-                  className={`px-2.5 py-1 rounded-xl font-mono text-[11px] transition-all border ${
+                  onClick={() => {
+                    setCustomHost(lanHost);
+                    setActiveMode('WIFI');
+                  }}
+                  className={`px-3 py-1.5 rounded-xl font-mono text-[11px] transition-all border flex items-center gap-1.5 ${
                     isSelected
-                      ? 'gold-gradient-bg text-slate-950 border-amber-400 shadow-md shadow-amber-500/20 font-bold'
-                      : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200 hover:border-slate-700'
+                      ? 'gold-gradient-bg text-slate-950 border-amber-400 shadow-md shadow-amber-500/25 font-bold'
+                      : 'bg-slate-900 text-slate-300 border-slate-700 hover:border-amber-400/60'
                   }`}
                 >
-                  {iface.isHotspot ? '🔥 ' : '📶 '}
-                  {iface.name.replace(/\(.*\)/, '').trim() || 'LAN'}: {iface.ip}:{currentPort}
+                  {iface.isHotspot ? '🔥' : '📶'}
+                  <span>
+                    {iface.name.replace(/\(.*\)/, '').trim() || 'Wi-Fi'}: {iface.ip}:{currentPort}
+                  </span>
+                  {isSelected && <span className="text-[9px] px-1 py-0.2 bg-slate-950 text-amber-400 rounded font-black">ACTIVE</span>}
                 </button>
               );
             })}
 
+            {/* Production Cloud Customer URL Button */}
+            <button
+              type="button"
+              onClick={() => {
+                setCustomHost(PRODUCTION_CUSTOMER_URL);
+                setActiveMode('PROD');
+              }}
+              className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border flex items-center gap-1.5 ${
+                isProductionSelected
+                  ? 'gold-gradient-bg text-slate-950 border-amber-400 shadow-md shadow-amber-500/25'
+                  : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200 hover:border-slate-700'
+              }`}
+            >
+              <Globe className="w-3.5 h-3.5" />
+              <span>Production Cloud ({PRODUCTION_CUSTOMER_URL.replace(/^https?:\/\//, '')})</span>
+            </button>
+
+            {/* Browser Host (Localhost) Button */}
             {typeof window !== 'undefined' && (
               <button
                 type="button"
-                onClick={() => setCustomHost(window.location.origin)}
+                onClick={() => {
+                  setCustomHost(window.location.origin);
+                  setActiveMode('LOCAL');
+                }}
                 className={`px-2.5 py-1 rounded-xl font-mono text-[11px] transition-all border ${
-                  customHost === window.location.origin && !isProductionSelected
+                  customHost === window.location.origin && !isProductionSelected && !isLanSelected
                     ? 'gold-gradient-bg text-slate-950 border-amber-400 font-bold'
                     : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
                 }`}
               >
-                Browser Host ({window.location.host})
+                <Monitor className="w-3 h-3 inline mr-1" />
+                Browser ({window.location.host})
               </button>
             )}
           </div>
@@ -231,9 +290,19 @@ export default function QRCardModal({ table, isOpen, onClose }: QRCardModalProps
               type="text"
               value={customHost.includes('restaurant-frontend-smoky.vercel.app') || customHost.includes('r1sqderz8') ? PRODUCTION_CUSTOMER_URL : customHost}
               onChange={(e) => setCustomHost(e.target.value)}
-              placeholder={`e.g. ${PRODUCTION_CUSTOMER_URL}`}
+              placeholder={`e.g. http://192.168.1.106:3000`}
               className="flex-1 px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-white font-mono text-[11px] focus:outline-none focus:border-amber-400"
             />
+          </div>
+
+          {/* Wi-Fi connection instruction banner */}
+          <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-200 flex items-start gap-2">
+            <Info className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+            <div>
+              <span>
+                <strong>Mobile phone testing:</strong> Ensure your phone is connected to the same Wi-Fi network. Point your camera at this QR code to order. The order will immediately ring on this screen!
+              </span>
+            </div>
           </div>
         </div>
 
