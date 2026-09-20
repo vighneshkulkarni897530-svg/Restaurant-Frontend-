@@ -28,6 +28,7 @@ import { api, subscribeToLocalOrderEvents } from '../../../lib/api';
 import { getSocket } from '../../../lib/socket';
 import { firebaseDb } from '../../../lib/firebaseDb';
 import { Order, OrderStatus } from '../../../types';
+import { mergeOrders } from '../../../lib/orderSync';
 
 export default function OrderDetailsPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -50,14 +51,17 @@ export default function OrderDetailsPage() {
         status: statusFilter === 'all' ? undefined : statusFilter,
         tableId: tableFilter === 'all' ? undefined : tableFilter,
       });
-      if (res.orders) {
+      if (res.orders && Array.isArray(res.orders)) {
         const cleanOrders = res.orders.filter(
-          (o: Order) =>
-            !o.id?.startsWith('ord_demo_') &&
-            o.orderNumber !== 'ORD-1001' &&
-            o.orderNumber !== 'ORD-1002'
+          (o: Order) => !o.id?.startsWith('ord_demo_')
         );
-        setOrders(cleanOrders);
+
+        // Background sync to Firestore
+        cleanOrders.forEach((o: Order) => {
+          firebaseDb.saveOrder(o).catch(() => {});
+        });
+
+        setOrders((prev) => mergeOrders(prev, cleanOrders));
       }
     } catch (e) {
       console.error('Failed to load order details:', e);
@@ -79,14 +83,11 @@ export default function OrderDetailsPage() {
   // Real-Time Firebase Firestore, Socket & Cross-Tab Listener
   useEffect(() => {
     const unsubFirestore = firebaseDb.listenToAllOrders((firestoreOrders) => {
-      if (firestoreOrders && Array.isArray(firestoreOrders)) {
+      if (firestoreOrders && Array.isArray(firestoreOrders) && firestoreOrders.length > 0) {
         const cleanOrders = firestoreOrders.filter(
-          (o: Order) =>
-            !o.id?.startsWith('ord_demo_') &&
-            o.orderNumber !== 'ORD-1001' &&
-            o.orderNumber !== 'ORD-1002'
+          (o: Order) => !o.id?.startsWith('ord_demo_')
         );
-        setOrders(cleanOrders);
+        setOrders((prev) => mergeOrders(prev, cleanOrders));
         setIsLoading(false);
       }
     });
@@ -94,15 +95,23 @@ export default function OrderDetailsPage() {
     const socket = getSocket();
     socket.emit('join_admin');
 
-    const handleEvent = () => {
-      loadOrders(false);
+    const handleEvent = (data?: any) => {
+      if (data && (data.id || data.orderNumber)) {
+        setOrders((prev) => mergeOrders(prev, [data]));
+      } else {
+        loadOrders(false);
+      }
     };
 
     socket.on('order:new', handleEvent);
     socket.on('order:status_updated', handleEvent);
 
-    const unsubscribeLocal = subscribeToLocalOrderEvents(() => {
-      loadOrders(false);
+    const unsubscribeLocal = subscribeToLocalOrderEvents((event, data) => {
+      if (data && (data.id || data.orderNumber)) {
+        setOrders((prev) => mergeOrders(prev, [data]));
+      } else {
+        loadOrders(false);
+      }
     });
 
     return () => {
@@ -111,7 +120,7 @@ export default function OrderDetailsPage() {
       socket.off('order:status_updated', handleEvent);
       unsubscribeLocal();
     };
-  }, [statusFilter, tableFilter]);
+  }, []);
 
   const handleOpenReceipt = (order: Order) => {
     setSelectedReceiptOrder(order);

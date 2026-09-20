@@ -23,6 +23,7 @@ import { getSocket } from '../../../lib/socket';
 import { playSound } from '../../../lib/audio';
 import { firebaseDb } from '../../../lib/firebaseDb';
 import { Order, OrderStatus } from '../../../types';
+import { mergeOrders } from '../../../lib/orderSync';
 
 export default function AdminOrdersKDSPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -39,14 +40,17 @@ export default function AdminOrdersKDSPage() {
     if (showLoading) setIsLoading(true);
     try {
       const res = await api.listOrders();
-      if (res.orders) {
+      if (res.orders && Array.isArray(res.orders)) {
         const cleanOrders = res.orders.filter(
-          (o: Order) =>
-            !o.id?.startsWith('ord_demo_') &&
-            o.orderNumber !== 'ORD-1001' &&
-            o.orderNumber !== 'ORD-1002'
+          (o: Order) => !o.id?.startsWith('ord_demo_')
         );
-        setOrders(cleanOrders);
+
+        // Background sync to Firestore so cloud database stays updated with backend DB
+        cleanOrders.forEach((o: Order) => {
+          firebaseDb.saveOrder(o).catch(() => {});
+        });
+
+        setOrders((prev) => mergeOrders(prev, cleanOrders));
       }
     } catch (e) {
       console.error('Failed to load orders:', e);
@@ -70,22 +74,19 @@ export default function AdminOrdersKDSPage() {
   useEffect(() => {
     // A. Real-Time Firebase Cloud Firestore listener
     const unsubFirestore = firebaseDb.listenToAllOrders((firestoreOrders) => {
-      if (firestoreOrders && Array.isArray(firestoreOrders)) {
+      if (firestoreOrders && Array.isArray(firestoreOrders) && firestoreOrders.length > 0) {
         const cleanOrders = firestoreOrders.filter(
-          (o: Order) =>
-            !o.id?.startsWith('ord_demo_') &&
-            o.orderNumber !== 'ORD-1001' &&
-            o.orderNumber !== 'ORD-1002'
+          (o: Order) => !o.id?.startsWith('ord_demo_')
         );
 
         setOrders((prev) => {
-          const prevIds = new Set(prev.map((o) => o.id));
-          const hasNew = cleanOrders.some((fo) => !prevIds.has(fo.id));
+          const prevIds = new Set(prev.map((o) => o.id || o.orderNumber));
+          const hasNew = cleanOrders.some((fo) => !prevIds.has(fo.id || fo.orderNumber));
           if (hasNew && prev.length > 0) {
             console.log('⚡ KDS received new order via Firebase Cloud Firestore!');
             playSound('new_order');
           }
-          return cleanOrders;
+          return mergeOrders(prev, cleanOrders);
         });
         setIsLoading(false);
       }
@@ -99,18 +100,13 @@ export default function AdminOrdersKDSPage() {
       if (!newOrder) return;
       console.log('⚡ KDS received new order event:', newOrder.orderNumber);
       playSound('new_order');
-      setOrders((prev) => {
-        const filtered = prev.filter((o) => o.id !== newOrder.id);
-        return [newOrder, ...filtered];
-      });
+      setOrders((prev) => mergeOrders(prev, [newOrder]));
     };
 
     const handleStatusUpdate = (updatedOrder: Order) => {
       if (!updatedOrder) return;
       console.log('⚡ KDS received status update:', updatedOrder.orderNumber, updatedOrder.status);
-      setOrders((prev) =>
-        prev.map((o) => (o.id === updatedOrder.id ? updatedOrder : o))
-      );
+      setOrders((prev) => mergeOrders(prev, [updatedOrder]));
     };
 
     socket.on('order:new', handleNewOrder);
@@ -137,7 +133,7 @@ export default function AdminOrdersKDSPage() {
     try {
       // 1. Optimistic UI update
       setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+        prev.map((o) => (o.id === orderId || o.orderNumber === orderId ? { ...o, status: newStatus } : o))
       );
       playSound('status_update');
 
@@ -149,12 +145,11 @@ export default function AdminOrdersKDSPage() {
       // 3. Sync to API backend
       const res = await api.updateOrderStatus(orderId, newStatus);
       if (res.success && res.order) {
-        setOrders((prev) =>
-          prev.map((o) => (o.id === orderId ? res.order : o))
-        );
+        setOrders((prev) => mergeOrders(prev, [res.order]));
       }
     } catch (e) {
       console.error('Failed to update status:', e);
+      loadOrders(false);
     }
   };
 

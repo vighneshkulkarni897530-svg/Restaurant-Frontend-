@@ -64,12 +64,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     // Firebase Cloud Firestore live listener for table assistance calls
     const unsubCalls = firebaseDb.listenToPendingWaiterCalls((calls) => {
-      if (calls && Array.isArray(calls)) {
+      if (calls && Array.isArray(calls) && calls.length > 0) {
         setPendingCalls((prev) => {
           if (calls.length > prev.length && soundEnabled) {
             playSound('waiter_bell');
           }
-          return calls;
+          const map = new Map<string, WaiterCall>();
+          prev.forEach((c) => { if (c.id) map.set(c.id, c); });
+          calls.forEach((c) => { if (c.id) map.set(c.id, c); });
+          return Array.from(map.values());
         });
       }
     });
